@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 
 class MatchCenterPage extends StatefulWidget {
   const MatchCenterPage({super.key, required this.isBangla});
@@ -188,10 +189,11 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
   late Map<String, dynamic> match;
   List<Map<String, dynamic>> players = [];
   bool saving = false;
+  bool _setupShown = false;
   String tr(String en, String bn) => widget.isBangla ? bn : en;
 
   @override
-  void initState() { super.initState(); match = widget.match; _loadPlayers(); _ensureInnings(); }
+  void initState() { super.initState(); match = widget.match; _loadPlayers(); _ensureInnings(); WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted && match['tossDone'] != true) _showMatchSetup(); }); }
 
   Future<void> _loadPlayers() async {
     final prefs = await SharedPreferences.getInstance();
@@ -210,6 +212,42 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
   int get currentIndex => (match['currentInnings'] as num?)?.toInt() ?? 0;
   Map<String, dynamic> get current => innings[currentIndex];
   int get maxBalls => ((match['overs'] as num?)?.toInt() ?? 10) * 6;
+
+  Future<void> _showMatchSetup() async {
+    if (_setupShown || match['tossDone'] == true) return;
+    _setupShown = true;
+    final a = match['teamAId'].toString();
+    final b = match['teamBId'].toString();
+    String tossWinner = a;
+    String decision = 'Bat';
+    final umpire = TextEditingController();
+    final ok = await showDialog<bool>(context: context, barrierDismissible: false, builder: (ctx) => StatefulBuilder(builder: (ctx, refresh) => AlertDialog(
+      title: Text(tr('Match toss & officials', 'ম্যাচ টস ও আম্পায়ার')),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        DropdownButtonFormField<String>(value: tossWinner, decoration: InputDecoration(labelText: tr('Toss won by', 'টস জিতেছে')),
+          items: [DropdownMenuItem(value: a, child: Text(_teamName(a))), DropdownMenuItem(value: b, child: Text(_teamName(b)))],
+          onChanged: (v) => refresh(() => tossWinner = v ?? a)),
+        DropdownButtonFormField<String>(value: decision, decoration: InputDecoration(labelText: tr('Toss decision', 'টসের সিদ্ধান্ত')),
+          items: [DropdownMenuItem(value: 'Bat', child: Text(tr('Bat first', 'আগে ব্যাটিং'))), DropdownMenuItem(value: 'Bowl', child: Text(tr('Bowl first', 'আগে বোলিং')))],
+          onChanged: (v) => refresh(() => decision = v ?? 'Bat')),
+        TextField(controller: umpire, decoration: InputDecoration(labelText: tr('Umpire name(s)', 'আম্পায়ারের নাম'))),
+      ]),
+      actions: [FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Start Match', 'ম্যাচ শুরু করুন')))],
+    )));
+    if (ok == true && mounted) {
+      final batFirst = decision == 'Bat' ? tossWinner : (tossWinner == a ? b : a);
+      final bowlFirst = batFirst == a ? b : a;
+      match['tossDone'] = true;
+      match['tossWinnerId'] = tossWinner;
+      match['tossDecision'] = decision;
+      match['umpire'] = umpire.text.trim();
+      match['innings'] = [{'battingTeamId': batFirst, 'bowlingTeamId': bowlFirst, 'runs': 0, 'wickets': 0, 'balls': 0, 'events': <Map<String, dynamic>>[], 'strikerId': '', 'nonStrikerId': '', 'bowlerId': ''}];
+      match['currentInnings'] = 0;
+      setState(() {});
+      await _persist();
+    }
+    umpire.dispose();
+  }
 
   void _ensureInnings() {
     if (innings.isEmpty) {
@@ -322,6 +360,16 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _shareScoreboard() async {
+    final lines = <String>['BD Cricket Scorer', (match['teamA'] ?? _teamName(match['teamAId'].toString())).toString() + ' vs ' + (match['teamB'] ?? _teamName(match['teamBId'].toString())).toString(), 'Umpire: ' + (match['umpire'] ?? '—').toString()];
+    for (final inn in innings) {
+      final balls = (inn['balls'] as num? ?? 0).toInt();
+      lines.add(_teamName(inn['battingTeamId'].toString()) + ': ' + inn['runs'].toString() + '/' + inn['wickets'].toString() + ' (' + (balls ~/ 6).toString() + '.' + (balls % 6).toString() + ')');
+    }
+    lines.add('Status: ' + (match['status'] ?? 'Live').toString());
+    await Share.share(lines.join('\\n'), subject: 'Cricket scoreboard');
+  }
+
   Future<void> _undo() async {
     final events = _events();
     if (events.isEmpty) return;
@@ -388,7 +436,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('Live Scoring', 'লাইভ স্কোরিং')),
-        actions: [IconButton(onPressed: events.isEmpty ? null : _undo, tooltip: tr('Undo last ball', 'শেষ বল বাতিল'), icon: const Icon(Icons.undo))],
+        actions: [IconButton(onPressed: _shareScoreboard, tooltip: tr('Share scoreboard', 'স্কোরবোর্ড শেয়ার'), icon: const Icon(Icons.share)), if (match['status'] != 'Completed') IconButton(onPressed: events.isEmpty ? null : _undo, tooltip: tr('Undo last ball', 'শেষ বল বাতিল'), icon: const Icon(Icons.undo))],
       ),
       body: ListView(padding: const EdgeInsets.all(14), children: [
         Card(color: const Color(0xFF102019), child: Padding(
