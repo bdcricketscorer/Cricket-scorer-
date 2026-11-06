@@ -12,6 +12,7 @@ class TeamSquadsPage extends StatefulWidget {
 class _TeamSquadsPageState extends State<TeamSquadsPage> {
   List<Map<String, dynamic>> teams = [];
   List<Map<String, dynamic>> players = [];
+  List<Map<String, dynamic>> tournaments = [];
   bool loading = true;
   String search = '';
   String tr(String en, String bn) => widget.isBangla ? bn : en;
@@ -46,8 +47,10 @@ class _TeamSquadsPageState extends State<TeamSquadsPage> {
             .map((e) => Map<String, dynamic>.from(e)).toList();
       } catch (_) {}
     }
+    List<Map<String, dynamic>> loadedTournaments = [];
+    try { loadedTournaments = (jsonDecode(prefs.getString('tournament_profiles_v1') ?? '[]') as List).map((e) => Map<String, dynamic>.from(e)).toList(); } catch (_) {}
     if (!mounted) return;
-    setState(() { teams = loadedTeams; players = loadedPlayers; loading = false; });
+    setState(() { teams = loadedTeams; players = loadedPlayers; tournaments = loadedTournaments; loading = false; });
   }
 
   Future<void> _save() async {
@@ -88,6 +91,20 @@ class _TeamSquadsPageState extends State<TeamSquadsPage> {
     await _save();
   }
 
+  bool _conflictsInTournament(String teamId, String playerId) {
+    for (final tournament in tournaments) {
+      final registered = (tournament['teamIds'] as List? ?? []).map((e) => e.toString()).toSet();
+      if (!registered.contains(teamId)) continue;
+      for (final other in teams) {
+        final otherId = other['id'].toString();
+        if (otherId == teamId || !registered.contains(otherId)) continue;
+        final ids = (other['playerIds'] as List? ?? []).map((e) => e.toString()).toSet();
+        if (ids.contains(playerId)) return true;
+      }
+    }
+    return false;
+  }
+
   Future<void> _manageSquad(Map<String, dynamic> team) async {
     final selected = <String>{...List<String>.from(team['playerIds'] ?? <String>[])};
     String captain = team['captainId']?.toString() ?? '';
@@ -106,13 +123,19 @@ class _TeamSquadsPageState extends State<TeamSquadsPage> {
                 final id = p['id'].toString();
                 return CheckboxListTile(dense: true, value: selected.contains(id),
                   title: Text(p['name'].toString()), subtitle: Text(p['role']?.toString() ?? ''),
-                  onChanged: (v) => refresh(() {
+                  onChanged: (v) {
+                    if (v == true && _conflictsInTournament(team['id'].toString(), id)) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('This player is already registered with another team in the same tournament.', 'এই খেলোয়াড় একই টুর্নামেন্টের অন্য দলে নিবন্ধিত আছে।'))));
+                      return;
+                    }
+                    refresh(() {
                     if (v == true) { selected.add(id); } else {
                       selected.remove(id);
                       if (captain == id) captain = '';
                       if (vice == id) vice = '';
                     }
-                  }));
+                  });
+                  });
               }).toList())),
             const Divider(),
             DropdownButtonFormField<String>(
