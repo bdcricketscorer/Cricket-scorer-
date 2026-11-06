@@ -272,7 +272,9 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
   List<Map<String, dynamic>> _squad(String teamId) {
     final team = widget.teams.where((t) => t['id'].toString() == teamId).toList();
     if (team.isEmpty) return [];
-    final ids = List<String>.from(team.first['playerIds'] ?? <String>[]);
+    final rawIds = team.first['playerIds'];
+    final ids = (rawIds is List ? rawIds : const <dynamic>[])
+        .map((id) => id.toString()).toSet();
     return players.where((p) => ids.contains(p['id'].toString())).toList();
   }
 
@@ -344,7 +346,10 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     if (wicket) {
       current['strikerId'] = '';
     } else {
-      if (runs.isOdd) {
+      // Rotate strike only for runs completed by batters or running/byes/leg-byes.
+      // A standalone no-ball or wide penalty does not change ends.
+      final rotationRuns = legal ? runs : batterRuns;
+      if (rotationRuns.isOdd) {
         current['strikerId'] = beforeNon;
         current['nonStrikerId'] = beforeStriker;
       }
