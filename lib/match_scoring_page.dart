@@ -56,6 +56,7 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
     }
     String a = teams[0]['id'].toString();
     String b = teams[1]['id'].toString();
+    final oversController = TextEditingController(text: '10');
     int overs = 10;
     final result = await showDialog<bool>(context: context, builder: (ctx) =>
       StatefulBuilder(builder: (ctx, refresh) => AlertDialog(
@@ -77,20 +78,15 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
               DropdownMenuItem(value: t['id'].toString(), child: Text(t['name'].toString()))).toList(),
             onChanged: (v) => refresh(() => b = v ?? b)),
           const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            initialValue: overs,
-            decoration: InputDecoration(labelText: tr('Overs per innings', 'প্রতি ইনিংসে ওভার')),
-            items: [5, 6, 10, 12, 15, 20, 25, 50].map((n) =>
-              DropdownMenuItem(value: n, child: Text(n.toString()))).toList(),
-            onChanged: (v) => refresh(() => overs = v ?? 10)),
+          TextField(controller: oversController, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('Overs per innings (1–100)', 'প্রতি ইনিংসে ওভার (১–১০০)')), onChanged: (v) => overs = int.tryParse(v) ?? 0),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false),
             child: Text(tr('Cancel', 'বাতিল'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('Create', 'তৈরি করুন'))),
+          FilledButton(onPressed: () { final v = int.tryParse(oversController.text.trim()) ?? 0; if (v < 1 || v > 100) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Enter overs from 1 to 100.', '১ থেকে ১০০ ওভারের মধ্যে লিখুন।')))); return; } overs = v; Navigator.pop(ctx, true); }, child: Text(tr('Create', 'তৈরি করুন'))),
         ],
       )));
+    oversController.dispose();
     if (result != true) return;
     final id = DateTime.now().microsecondsSinceEpoch.toString();
     setState(() => friendly.insert(0, {
