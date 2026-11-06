@@ -365,6 +365,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     setState(() {});
     await _persist();
     if (mounted) setState(() {});
+    if (legal && _legalBalls() > 0 && _legalBalls() % 6 == 0 && _legalBalls() < maxBalls && match['status'] != 'Completed') await _chooseNextBowler(beforeBowler);
   }
 
   Future<void> _shareScoreboard() async {
@@ -531,14 +532,14 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
           const SizedBox(height: 10),
           _playerSelect(tr('Bowler', 'বোলার'), 'bowlerId', bowling),
         ],
+        if ((current['bowlerId']?.toString() ?? '').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(tr('Bowler wickets: ', 'বোলারের উইকেট: ') + _events().where((e) => e['wicket'] == true && e['bowlerId'] == current['bowlerId'] && e['bowlerCredited'] == true).length.toString(), style: const TextStyle(color: Color(0xFFB9F6CA)))),
         const SizedBox(height: 16),
         Text(tr('Runs', 'রান'), style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         GridView.count(
           crossAxisCount: 4, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.45,
-          children: List.generate(7, (n) => _scoreButton(n.toString(),
-            () => _addBall(runs: n, batterRuns: n))),
+          children: List.generate(7, (n) => _scoreButton(n.toString(), () => _addBall(runs: n, batterRuns: n), color: n == 4 ? Colors.blue.shade800 : (n == 6 ? Colors.purple.shade800 : ((n == 1 || n == 2) ? Colors.teal.shade800 : const Color(0xFF07552D))))),
         ),
         const SizedBox(height: 14),
         Text(tr('Extras & Wicket', 'অতিরিক্ত রান ও উইকেট'), style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -547,10 +548,10 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
           crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.2,
           children: [
-            _scoreButton('Wide +1', () => _addBall(runs: 1, extras: 1, legal: false)),
-            _scoreButton('No-ball +1', () => _addBall(runs: 1, extras: 1, legal: false)),
-            _scoreButton('Bye +1', () => _addBall(runs: 1, extras: 1)),
-            _scoreButton('Leg-bye +1', () => _addBall(runs: 1, extras: 1)),
+            _scoreButton('Wide +1', () => _addBall(runs: 1, extras: 1, legal: false), color: Colors.orange.shade800),
+            _scoreButton('No-ball +1', () => _addBall(runs: 1, extras: 1, legal: false), color: Colors.deepOrange.shade800),
+            _scoreButton('Bye +1', () => _addBall(runs: 1, extras: 1), color: Colors.indigo.shade700),
+            _scoreButton('Leg-bye +1', () => _addBall(runs: 1, extras: 1), color: Colors.cyan.shade800),
             _scoreButton(tr('Wicket', 'উইকেট'), _recordWicket, color: Colors.red.shade800),
           ],
         ),
