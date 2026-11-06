@@ -10,7 +10,7 @@ class StatisticsPage extends StatefulWidget {
 }
 
 class _StatisticsPageState extends State<StatisticsPage> with SingleTickerProviderStateMixin {
-  late final TabController tabs = TabController(length: 2, vsync: this);
+  late final TabController tabs = TabController(length: 3, vsync: this);
   List<Map<String, dynamic>> players = [];
   List<Map<String, dynamic>> teams = [];
   List<Map<String, dynamic>> tournaments = [];
@@ -277,6 +277,89 @@ class _StatisticsPageState extends State<StatisticsPage> with SingleTickerProvid
     ]);
   }
 
+  List<Map<String, dynamic>> _tournamentAwards() {
+    final ms = matches.where((m) => (m['tournamentId'] ?? m['tourId'] ?? '').toString() == selectedTournament).toList();
+    if (ms.isEmpty || ms.any((m) => m['status'] != 'Completed')) return [];
+    final stats = <String, Map<String, dynamic>>{};
+    for (final p in players) {
+      final id = p['id'].toString();
+      stats[id] = {'id': id, 'name': p['name'].toString(), 'runs': 0, 'wickets': 0, 'ballsBowled': 0, 'runsConceded': 0, 'matches': <String>{}};
+    }
+    for (final match in ms) {
+      final mid = match['id'].toString();
+      for (final rawInn in (match['innings'] as List? ?? [])) {
+        final inn = Map<String, dynamic>.from(rawInn);
+        for (final rawEvent in (inn['events'] as List? ?? [])) {
+          final e = Map<String, dynamic>.from(rawEvent);
+          final batter = (e['strikerId'] ?? '').toString();
+          final bowler = (e['bowlerId'] ?? '').toString();
+          final br = (e['batterRuns'] as num?)?.toInt() ?? 0;
+          final total = (e['runs'] as num?)?.toInt() ?? 0;
+          final extras = (e['extras'] as num?)?.toInt() ?? 0;
+          if (stats.containsKey(batter)) {
+            stats[batter]!['runs'] = (stats[batter]!['runs'] as int) + br;
+            (stats[batter]!['matches'] as Set<String>).add(mid);
+          }
+          if (stats.containsKey(bowler)) {
+            final s = stats[bowler]!;
+            if (e['legal'] == true) s['ballsBowled'] = (s['ballsBowled'] as int) + 1;
+            final conceded = total - (e['legal'] == true ? extras : 0);
+            s['runsConceded'] = (s['runsConceded'] as int) + (conceded < 0 ? 0 : conceded);
+            if (e['wicket'] == true && e['bowlerCredited'] == true) s['wickets'] = (s['wickets'] as int) + 1;
+            (s['matches'] as Set<String>).add(mid);
+          }
+        }
+      }
+    }
+    return stats.values.where((s) => (s['matches'] as Set<String>).isNotEmpty).map((s) {
+      final balls = s['ballsBowled'] as int;
+      return <String, dynamic>{...s, 'matches': (s['matches'] as Set<String>).length,
+        'economy': balls == 0 ? 999.0 : (s['runsConceded'] as int) * 6 / balls,
+        'allRoundScore': (s['runs'] as int) + (s['wickets'] as int) * 20};
+    }).toList();
+  }
+
+  Widget _awardCard(String title, Map<String, dynamic>? player, String detail) => Card(
+    color: const Color(0xFF102019),
+    child: ListTile(
+      leading: const CircleAvatar(child: Icon(Icons.emoji_events, color: Color(0xFF00E676))),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text(player == null ? tr('Not available', 'তথ্য পাওয়া যায়নি') : player['name'].toString() + ' • ' + detail),
+    ),
+  );
+
+  Widget _awardsTab() {
+    if (tournaments.isEmpty) return Center(child: Text(tr('Create a tournament first.', 'আগে একটি টুর্নামেন্ট তৈরি করুন।')));
+    final ms = matches.where((m) => (m['tournamentId'] ?? m['tourId'] ?? '').toString() == selectedTournament).toList();
+    final complete = ms.isNotEmpty && ms.every((m) => m['status'] == 'Completed');
+    final stats = _tournamentAwards();
+    Map<String, dynamic>? best(List<Map<String, dynamic>> list, int Function(Map<String, dynamic>) score) {
+      if (list.isEmpty) return null;
+      list.sort((a, b) => score(b).compareTo(score(a)));
+      return list.first;
+    }
+    final batter = best(stats.where((s) => (s['runs'] as int) > 0).toList(), (s) => s['runs'] as int);
+    final bowler = best(stats.where((s) => (s['wickets'] as int) > 0).toList(), (s) => (s['wickets'] as int) * 10000 - ((s['economy'] as double) * 100).round());
+    final allRounder = best(stats.where((s) => (s['runs'] as int) > 0 && (s['wickets'] as int) > 0).toList(), (s) => s['allRoundScore'] as int);
+    final pot = best(stats, (s) => (s['allRoundScore'] as int) + (s['matches'] as int));
+    return ListView(padding: const EdgeInsets.all(12), children: [
+      DropdownButtonFormField<String>(
+        initialValue: tournaments.any((t) => t['id'].toString() == selectedTournament) ? selectedTournament : tournaments.first['id'].toString(),
+        decoration: InputDecoration(labelText: tr('Select tournament', 'টুর্নামেন্ট নির্বাচন করুন'), border: const OutlineInputBorder()),
+        items: tournaments.map((t) => DropdownMenuItem(value: t['id'].toString(), child: Text(t['name'].toString()))).toList(),
+        onChanged: (v) => setState(() => selectedTournament = v ?? ''),
+      ),
+      const SizedBox(height: 12),
+      if (!complete) Card(child: Padding(padding: const EdgeInsets.all(14), child: Text(tr('Awards are calculated after every tournament match is completed.', 'টুর্নামেন্টের সব ম্যাচ শেষ হলে পুরস্কার নির্ধারণ হবে।')))),
+      if (complete) ...[
+        _awardCard(tr('Player of the Tournament', 'টুর্নামেন্ট সেরা খেলোয়াড়'), pot, pot == null ? '' : pot['runs'].toString() + ' runs • ' + pot['wickets'].toString() + ' wickets'),
+        _awardCard(tr('Best Batter', 'সেরা ব্যাটার'), batter, batter == null ? '' : batter['runs'].toString() + ' runs'),
+        _awardCard(tr('Best Bowler', 'সেরা বোলার'), bowler, bowler == null ? '' : bowler['wickets'].toString() + ' wickets • ' + (bowler['economy'] as double).toStringAsFixed(2) + ' economy'),
+        _awardCard(tr('Best All-rounder', 'সেরা অলরাউন্ডার'), allRounder, allRounder == null ? '' : allRounder['runs'].toString() + ' runs • ' + allRounder['wickets'].toString() + ' wickets'),
+      ],
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -284,12 +367,13 @@ class _StatisticsPageState extends State<StatisticsPage> with SingleTickerProvid
       bottom: TabBar(controller: tabs, tabs: [
         Tab(text: tr('Player Stats', 'প্লেয়ার পরিসংখ্যান')),
         Tab(text: tr('Points Table', 'পয়েন্ট টেবিল')),
+        Tab(text: tr('Tournament Awards', 'টুর্নামেন্ট পুরস্কার')),
       ]),
       actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh), tooltip: tr('Refresh', 'রিফ্রেশ'))],
     ),
     body: loading ? const Center(child: CircularProgressIndicator()) : TabBarView(
       controller: tabs,
-      children: [_playerTab(), _pointsTab()],
+      children: [_playerTab(), _pointsTab(), _awardsTab()],
     ),
   );
 }
