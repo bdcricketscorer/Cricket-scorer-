@@ -203,8 +203,10 @@ class _TournamentPageState extends State<TournamentPage> {
   }
 
   Future<void> _openTournamentMatches(Map<String, dynamic> tournament) async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => MatchCenterPage(
-      isBangla: widget.isBangla, tournamentId: tournament['id'].toString(),
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentDetailsPage(
+      tournament: Map<String, dynamic>.from(tournament),
+      isBangla: widget.isBangla,
+      teams: teams,
     )));
     await _load();
   }
@@ -283,4 +285,152 @@ class _TournamentPageState extends State<TournamentPage> {
       ]),
     );
   }
+}
+
+
+class TournamentDetailsPage extends StatefulWidget {
+  const TournamentDetailsPage({super.key, required this.tournament, required this.isBangla, required this.teams});
+  final Map<String, dynamic> tournament;
+  final bool isBangla;
+  final List<Map<String, dynamic>> teams;
+  @override
+  State<TournamentDetailsPage> createState() => _TournamentDetailsPageState();
+}
+
+class _TournamentDetailsPageState extends State<TournamentDetailsPage> with SingleTickerProviderStateMixin {
+  late final TabController tabs = TabController(length: 2, vsync: this);
+  List<Map<String, dynamic>> fixtures = [];
+  bool loading = true;
+  String tr(String en, String bn) => widget.isBangla ? bn : en;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  @override
+  void dispose() { tabs.dispose(); super.dispose(); }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<Map<String, dynamic>> data = [];
+    try {
+      data = (jsonDecode(prefs.getString('tournament_fixtures_v1') ?? '[]') as List)
+        .map((e) => Map<String, dynamic>.from(e))
+        .where((m) => m['tournamentId']?.toString() == widget.tournament['id'].toString())
+        .toList();
+    } catch (_) {}
+    if (mounted) setState(() { fixtures = data; loading = false; });
+  }
+
+  String _teamName(String id) {
+    final found = widget.teams.where((t) => t['id'].toString() == id).toList();
+    return found.isEmpty ? tr('Unknown team', 'অজানা দল') : found.first['name'].toString();
+  }
+
+  List<Map<String, dynamic>> _pointsRows() {
+    final ids = (widget.tournament['teamIds'] as List? ?? []).map((e) => e.toString()).toList();
+    final rows = <String, Map<String, dynamic>>{};
+    for (final id in ids) {
+      rows[id] = {'team': _teamName(id), 'played': 0, 'won': 0, 'lost': 0, 'tied': 0, 'points': 0, 'rf': 0, 'bf': 0, 'ra': 0, 'ba': 0};
+    }
+    for (final m in fixtures.where((m) => m['status'] == 'Completed')) {
+      final inns = (m['innings'] as List? ?? []).map((e) => Map<String, dynamic>.from(e)).toList();
+      if (inns.length < 2) continue;
+      final aId = inns[0]['battingTeamId']?.toString() ?? '';
+      final bId = inns[1]['battingTeamId']?.toString() ?? '';
+      if (!rows.containsKey(aId) || !rows.containsKey(bId)) continue;
+      int runs(Map<String, dynamic> inn) {
+        final ev = inn['events'] as List? ?? [];
+        return ev.isEmpty ? (inn['runs'] as num? ?? 0).toInt() : ev.fold<int>(0, (s, e) => s + (((e as Map)['runs'] as num?)?.toInt() ?? 0));
+      }
+      int balls(Map<String, dynamic> inn) => (inn['events'] as List? ?? []).where((e) => (e as Map)['legal'] == true).length;
+      int wickets(Map<String, dynamic> inn) => (inn['wickets'] as num? ?? 0).toInt();
+      final quota = ((m['overs'] as num?)?.toInt() ?? 10) * 6;
+      final ar = runs(inns[0]), br = runs(inns[1]);
+      final ab = wickets(inns[0]) >= 10 ? quota : balls(inns[0]);
+      final bb = wickets(inns[1]) >= 10 ? quota : balls(inns[1]);
+      final a = rows[aId]!, b = rows[bId]!;
+      a['played'] = (a['played'] as int) + 1; b['played'] = (b['played'] as int) + 1;
+      a['rf'] = (a['rf'] as int) + ar; a['bf'] = (a['bf'] as int) + ab; a['ra'] = (a['ra'] as int) + br; a['ba'] = (a['ba'] as int) + bb;
+      b['rf'] = (b['rf'] as int) + br; b['bf'] = (b['bf'] as int) + bb; b['ra'] = (b['ra'] as int) + ar; b['ba'] = (b['ba'] as int) + ab;
+      if (ar > br) { a['won'] = (a['won'] as int) + 1; a['points'] = (a['points'] as int) + 2; b['lost'] = (b['lost'] as int) + 1; }
+      else if (br > ar) { b['won'] = (b['won'] as int) + 1; b['points'] = (b['points'] as int) + 2; a['lost'] = (a['lost'] as int) + 1; }
+      else { a['tied'] = (a['tied'] as int) + 1; b['tied'] = (b['tied'] as int) + 1; a['points'] = (a['points'] as int) + 1; b['points'] = (b['points'] as int) + 1; }
+    }
+    final result = rows.values.toList();
+    for (final r in result) {
+      final bf = r['bf'] as int, ba = r['ba'] as int;
+      r['nrr'] = bf == 0 || ba == 0 ? 0.0 : (r['rf'] as int) * 6 / bf - (r['ra'] as int) * 6 / ba;
+    }
+    result.sort((a, b) {
+      final p = (b['points'] as int).compareTo(a['points'] as int);
+      return p != 0 ? p : (b['nrr'] as double).compareTo(a['nrr'] as double);
+    });
+    return result;
+  }
+
+  Widget _overview() {
+    final ids = (widget.tournament['teamIds'] as List? ?? []).map((e) => e.toString()).toList();
+    final completed = fixtures.where((m) => m['status'] == 'Completed').length;
+    return ListView(padding: const EdgeInsets.all(14), children: [
+      Card(color: const Color(0xFF102019), child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(widget.tournament['name'].toString(), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        Text(tr('Format: ', 'ফরম্যাট: ') + (widget.tournament['format'] ?? 'League').toString()),
+        Text(tr('Overs per innings: ', 'প্রতি ইনিংসে ওভার: ') + (widget.tournament['overs'] ?? 10).toString()),
+        Text(tr('Registered teams: ', 'নিবন্ধিত দল: ') + ids.length.toString()),
+        if (widget.tournament['format'] == 'Group + Knockout')
+          Text(tr('Groups: ', 'গ্রুপ: ') + (widget.tournament['groupCount'] ?? 2).toString()),
+        Text(tr('Fixtures: ', 'ম্যাচ: ') + fixtures.length.toString() + ' • ' + tr('Completed: ', 'শেষ: ') + completed.toString()),
+      ]))),
+      Text(tr('Registered Teams', 'নিবন্ধিত দল'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+      ...ids.map((id) => Card(color: const Color(0xFF102019), child: ListTile(leading: const Icon(Icons.groups, color: Color(0xFF00E676)), title: Text(_teamName(id))))),
+      const SizedBox(height: 8),
+      Text(tr('Match Schedule', 'ম্যাচ সূচি'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+      if (fixtures.isEmpty) Text(tr('No fixtures generated yet.', 'এখনো ফিক্সচার তৈরি হয়নি।')),
+      ...fixtures.map((m) {
+        final inns = m['innings'] as List? ?? [];
+        final score = inns.isEmpty ? tr('Not started', 'শুরু হয়নি') : inns.map((raw) {
+          final inn = Map<String, dynamic>.from(raw);
+          return inn['runs'].toString() + '/' + inn['wickets'].toString();
+        }).join(' - ');
+        return Card(color: const Color(0xFF102019), child: ListTile(
+          leading: const Icon(Icons.sports_cricket, color: Color(0xFF00E676)),
+          title: Text(_teamName(m['teamAId'].toString()) + ' vs ' + _teamName(m['teamBId'].toString())),
+          subtitle: Text((m['stage'] ?? 'League').toString() + ' • ' + score + ' • ' + (m['status'] ?? 'Scheduled').toString() +
+            ((m['manOfTheMatch'] ?? '').toString().isEmpty ? '' : '\\nMOM: ' + m['manOfTheMatch'].toString())),
+        ));
+      }),
+      const SizedBox(height: 10),
+      FilledButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MatchCenterPage(
+        isBangla: widget.isBangla, tournamentId: widget.tournament['id'].toString(),
+      ))), icon: const Icon(Icons.calendar_month), label: Text(tr('Open Match Schedule & Live Scoring', 'ম্যাচ সূচি ও লাইভ স্কোরিং খুলুন'))),
+    ]);
+  }
+
+  Widget _pointsTable() {
+    final rows = _pointsRows();
+    if (rows.isEmpty) return Center(child: Text(tr('No teams registered.', 'কোনো দল নিবন্ধিত নেই।')));
+    return ListView(padding: const EdgeInsets.all(12), children: [
+      SingleChildScrollView(scrollDirection: Axis.horizontal, child: DataTable(columns: [
+        DataColumn(label: Text(tr('Team', 'দল'))), DataColumn(label: Text(tr('P', 'ম্যাচ'))),
+        DataColumn(label: Text(tr('W', 'জয়'))), DataColumn(label: Text(tr('L', 'হার'))),
+        DataColumn(label: Text(tr('Pts', 'পয়েন্ট'))), DataColumn(label: Text('NRR')),
+      ], rows: rows.map((r) => DataRow(cells: [
+        DataCell(Text(r['team'].toString())), DataCell(Text(r['played'].toString())),
+        DataCell(Text(r['won'].toString())), DataCell(Text(r['lost'].toString())),
+        DataCell(Text(r['points'].toString())), DataCell(Text((r['nrr'] as double).toStringAsFixed(3))),
+      ])).toList())),
+      const SizedBox(height: 8),
+      Text(tr('Points: 2 for a win, 1 for a tie.', 'জয়ে ২ পয়েন্ট, টাই হলে ১ পয়েন্ট।'), style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(widget.tournament['name'].toString()), bottom: TabBar(controller: tabs, tabs: [
+      Tab(text: tr('Overview & Fixtures', 'বিস্তারিত ও ম্যাচ সূচি')),
+      Tab(text: tr('Points Table', 'পয়েন্ট টেবিল')),
+    ])),
+    body: loading ? const Center(child: CircularProgressIndicator()) : TabBarView(controller: tabs, children: [_overview(), _pointsTable()]),
+  );
 }
