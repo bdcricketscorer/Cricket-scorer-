@@ -187,17 +187,17 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedFixtures = tournamentId == null ? fixtures : fixtures.where((m) => m['tournamentId']?.toString() == tournamentId).toList();
+    final selectedFixtures = widget.tournamentId == null ? fixtures : fixtures.where((m) => m['tournamentId']?.toString() == widget.tournamentId).toList();
     final scheduled = selectedFixtures.where((m) => m['status'] != 'Completed').toList();
     final completed = selectedFixtures.where((m) => m['status'] == 'Completed').toList();
     return Scaffold(
-      appBar: AppBar(title: Text(tournamentId == null ? tr('Matches & Live Scoring', 'ম্যাচ ও লাইভ স্কোরিং') : (selectedFixtures.isNotEmpty ? selectedFixtures.first['tournament']?.toString() ?? tr('Tournament Schedule', 'টুর্নামেন্ট শিডিউল') : tr('Tournament Schedule', 'টুর্নামেন্ট শিডিউল')))),
-      floatingActionButton: tournamentId == null ? FloatingActionButton.extended(
+      appBar: AppBar(title: Text(widget.tournamentId == null ? tr('Matches & Live Scoring', 'ম্যাচ ও লাইভ স্কোরিং') : (selectedFixtures.isNotEmpty ? selectedFixtures.first['tournament']?.toString() ?? tr('Tournament Schedule', 'টুর্নামেন্ট শিডিউল') : tr('Tournament Schedule', 'টুর্নামেন্ট শিডিউল')))),
+      floatingActionButton: widget.tournamentId == null ? FloatingActionButton.extended(
         onPressed: _createMatch, icon: const Icon(Icons.add),
         label: Text(tr('Friendly Match', 'প্রীতি ম্যাচ'))) : null,
       body: loading ? const Center(child: CircularProgressIndicator()) :
         RefreshIndicator(onRefresh: _load, child: ListView(padding: const EdgeInsets.all(12), children: [
-          if (tournamentId == null && friendly.isNotEmpty) ...[
+          if (widget.tournamentId == null && friendly.isNotEmpty) ...[
             Text(tr('Friendly Matches', 'প্রীতি ম্যাচ'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             ...friendly.map((m) => _matchCard(m, isFriendly: true)),
             const SizedBox(height: 12),
