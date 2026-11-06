@@ -92,6 +92,8 @@ class _TeamSquadsPageState extends State<TeamSquadsPage> {
   }
 
   bool _conflictsInTournament(String teamId, String playerId) {
+    final candidate = players.where((p) => p['id'].toString() == playerId).toList();
+    final candidateName = candidate.isEmpty ? '' : candidate.first['name'].toString().trim().toLowerCase();
     for (final tournament in tournaments) {
       final registered = (tournament['teamIds'] as List? ?? []).map((e) => e.toString()).toSet();
       if (!registered.contains(teamId)) continue;
@@ -100,6 +102,11 @@ class _TeamSquadsPageState extends State<TeamSquadsPage> {
         if (otherId == teamId || !registered.contains(otherId)) continue;
         final ids = (other['playerIds'] as List? ?? []).map((e) => e.toString()).toSet();
         if (ids.contains(playerId)) return true;
+        if (candidateName.isNotEmpty) {
+          for (final otherPlayer in players) {
+            if (ids.contains(otherPlayer['id'].toString()) && otherPlayer['name'].toString().trim().toLowerCase() == candidateName) return true;
+          }
+        }
       }
     }
     return false;
