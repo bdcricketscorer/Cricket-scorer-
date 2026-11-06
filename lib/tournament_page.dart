@@ -226,7 +226,7 @@ class _TournamentPageState extends State<TournamentPage> {
             final ids = List<String>.from(t['teamIds'] ?? <String>[]);
             return Card(color: const Color(0xFF102019), child: ExpansionTile(
               leading: const CircleAvatar(child: Icon(Icons.emoji_events, color: Color(0xFF00E676))),
-              title: Text(t['name'].toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+              title: InkWell(onTap: () => _openTournamentMatches(t), child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text(t['name'].toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
               subtitle: Text(t['format'].toString() + ' • ' + t['overs'].toString() + ' ' + tr('overs', 'ওভার') + ' • ' + ids.length.toString() + ' ' + tr('teams', 'দল')),
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               children: [
