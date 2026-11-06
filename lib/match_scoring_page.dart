@@ -377,11 +377,57 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     await Share.share(lines.join('\\n'), subject: 'Cricket scoreboard');
   }
 
-  Future<void> _shareScoreboard() async {
-    final lines = <String>['BD Cricket Scorer', (match['teamA'] ?? _teamName(match['teamAId'].toString())).toString() + ' vs ' + (match['teamB'] ?? _teamName(match['teamBId'].toString())).toString(), 'Umpire: ' + (match['umpire'] ?? '—').toString()];
-    for (final inn in innings) { final balls = (inn['balls'] as num? ?? 0).toInt(); lines.add(_teamName(inn['battingTeamId'].toString()) + ': ' + inn['runs'].toString() + '/' + inn['wickets'].toString() + ' (' + (balls ~/ 6).toString() + '.' + (balls % 6).toString() + ')'); }
-    lines.add('Status: ' + (match['status'] ?? 'Live').toString());
-    await Share.share(lines.join('\\n'), subject: 'Cricket scoreboard');
+  Future<void> _recordWicket() async {
+    const types = ['Bowled', 'Caught', 'LBW', 'Stumped', 'Hit wicket', 'Run out', 'Retired hurt', 'Obstructing the field'];
+    String kind = 'Bowled';
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, refresh) => AlertDialog(
+      title: Text(tr('Wicket details', 'উইকেটের ধরন')),
+      content: DropdownButtonFormField<String>(value: kind, decoration: InputDecoration(labelText: tr('How out?', 'কীভাবে আউট?')),
+        items: types.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(), onChanged: (v) => refresh(() => kind = v ?? 'Bowled')),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cancel', 'বাতিল'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Confirm', 'নিশ্চিত করুন')))],
+    )));
+    if (ok == true) {
+      await _addBall(legal: true, wicket: true, wicketType: kind);
+      if (mounted && _wickets() < 10 && match['status'] != 'Completed') await _chooseNewBatter();
+    }
+  }
+
+  Future<void> _chooseNewBatter() async {
+    final squad = _squad(current['battingTeamId'].toString());
+    if (squad.isEmpty || _wickets() >= 10) return;
+    final used = <String>{current['nonStrikerId']?.toString() ?? ''};
+    for (final e in _events()) { if ((e['strikerId'] ?? '').toString().isNotEmpty) used.add(e['strikerId'].toString()); }
+    final options = squad.where((p) => !used.contains(p['id'].toString())).toList();
+    if (options.isEmpty) return;
+    String selected = '';
+    final id = await showDialog<String>(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
+      title: Text(tr('Select incoming batter', 'নতুন ব্যাটার নির্বাচন করুন')),
+      content: DropdownButtonFormField<String>(value: '', items: [const DropdownMenuItem(value: '', child: Text('Select player')), ...options.map((p) => DropdownMenuItem(value: p['id'].toString(), child: Text(p['name'].toString())))], onChanged: (v) => selected = v ?? ''),
+      actions: [FilledButton(onPressed: () { if (selected.isNotEmpty) Navigator.pop(ctx, selected); }, child: Text(tr('Confirm', 'নিশ্চিত করুন')))],
+    ));
+    if (id != null) { current['strikerId'] = id; setState(() {}); await _persist(); }
+  }
+
+  Future<void> _chooseNextBowler(String previous) async {
+    final options = _squad(current['bowlingTeamId'].toString()).where((p) => p['id'].toString() != previous).toList();
+    if (options.isEmpty) return;
+    String selected = '';
+    final id = await showDialog<String>(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
+      title: Text(tr('Over complete — select next bowler', 'ওভার শেষ — পরের বোলার নির্বাচন করুন')),
+      content: DropdownButtonFormField<String>(value: '', items: [const DropdownMenuItem(value: '', child: Text('Select bowler')), ...options.map((p) => DropdownMenuItem(value: p['id'].toString(), child: Text(p['name'].toString())))], onChanged: (v) => selected = v ?? ''),
+      actions: [FilledButton(onPressed: () { if (selected.isNotEmpty) Navigator.pop(ctx, selected); }, child: Text(tr('Continue', 'চালিয়ে যান')))],
+    ));
+    if (id != null) { current['bowlerId'] = id; setState(() {}); await _persist(); }
+  }
+
+  Future<void> _completeMatch() async {
+    if (match['status'] == 'Completed') return;
+    final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: Text(tr('Complete match?', 'ম্যাচ সম্পন্ন করবেন?')),
+      content: Text(tr('Scoring and undo will be locked after completion.', 'সম্পন্ন হলে স্কোরিং ও Undo বন্ধ হবে।')),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cancel', 'বাতিল'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Complete', 'সম্পন্ন করুন')))],
+    ));
+    if (yes == true) { match['status'] = 'Completed'; setState(() {}); await _persist(); }
   }
 
   Future<void> _undo() async {
