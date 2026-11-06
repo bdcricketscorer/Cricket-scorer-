@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'player_profiles_page.dart';
+import 'team_squads_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,6 +81,13 @@ class _DashboardPageState extends State<DashboardPage> {
     await _loadData();
   }
 
+  Future<void> _openTeams() async {
+    await Navigator.push(context, MaterialPageRoute(
+      builder: (_) => TeamSquadsPage(isBangla: isBangla),
+    ));
+    await _loadData();
+  }
+
   Future<void> _openPlayers() async {
     await Navigator.push(context, MaterialPageRoute(
       builder: (_) => PlayerProfilesPage(isBangla: isBangla),
@@ -151,8 +159,8 @@ class _DashboardPageState extends State<DashboardPage> {
             title: tr('Teams & Squads', 'দল ও স্কোয়াড'),
             subtitle: tr('Registered teams', 'নিবন্ধিত দল'),
             count: teams.length,
-            onAdd: () => _addItem('teams', tr('Add Team', 'দল যোগ করুন')),
-            onOpen: () => _addItem('teams', tr('Add Team', 'দল যোগ করুন')),
+            onAdd: _openTeams,
+            onOpen: _openTeams,
           ),
           _sectionCard(
             icon: Icons.emoji_events,
