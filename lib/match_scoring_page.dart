@@ -101,6 +101,7 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
   }
 
   Future<void> _restartMatch(Map<String, dynamic> source) async {
+    if (source['status'] == 'Completed') return;
     final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: Text(tr('Restart this match?', 'ম্যাচটি আবার শুরু করবেন?')),
       content: Text(tr('All innings, scores, toss and ball records for this match will be reset.', 'এই ম্যাচের সব ইনিংস, স্কোর, টস ও বলের রেকর্ড মুছে নতুন করে শুরু হবে।')),
@@ -119,6 +120,7 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
   }
 
   Future<void> _deleteMatch(Map<String, dynamic> source) async {
+    if (source['status'] == 'Completed') return;
     final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: Text(tr('Delete match?', 'ম্যাচটি মুছে ফেলবেন?')),
       content: Text(tr('This match and its score records will be permanently deleted.', 'ম্যাচটি ও এর সব স্কোর রেকর্ড স্থায়ীভাবে মুছে যাবে।')),
@@ -176,8 +178,8 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
         trailing: PopupMenuButton<String>(
           onSelected: (v) { if (v == 'restart') _restartMatch(match); if (v == 'delete') _deleteMatch(match); },
           itemBuilder: (_) => [
-            if (status != 'Scheduled') PopupMenuItem(value: 'restart', child: ListTile(dense: true, leading: const Icon(Icons.restart_alt), title: Text(tr('Restart match', 'ম্যাচ রিস্টার্ট')))),
-            PopupMenuItem(value: 'delete', child: ListTile(dense: true, leading: const Icon(Icons.delete_outline, color: Colors.red), title: Text(tr('Delete match', 'ম্যাচ ডিলিট')))),
+            if (status != 'Completed' && status != 'Scheduled') PopupMenuItem(value: 'restart', child: ListTile(dense: true, leading: const Icon(Icons.restart_alt), title: Text(tr('Restart match', 'ম্যাচ রিস্টার্ট')))),
+            if (status != 'Completed') PopupMenuItem(value: 'delete', child: ListTile(dense: true, leading: const Icon(Icons.delete_outline, color: Colors.red), title: Text(tr('Delete match', 'ম্যাচ ডিলিট')))),
           ],
         ),
         onTap: () => _openMatch(match, isFriendly: isFriendly),
