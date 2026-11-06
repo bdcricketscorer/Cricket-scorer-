@@ -417,6 +417,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     setState(() {});
     await _persist();
     if (mounted) setState(() {});
+    if (match['status'] == 'Completed') await _chooseManOfTheMatch();
     if (legal && _legalBalls() > 0 && _legalBalls() % 6 == 0 && _legalBalls() < maxBalls && match['status'] != 'Completed') await _chooseNextBowler(beforeBowler);
   }
 
@@ -494,6 +495,37 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     if (id != null) { current['bowlerId'] = id; setState(() {}); await _persist(); }
   }
 
+  Future<void> _chooseManOfTheMatch() async {
+    if ((match['manOfTheMatchId']?.toString() ?? '').isNotEmpty) return;
+    final ids = <String>{};
+    for (final teamId in [match['teamAId']?.toString() ?? '', match['teamBId']?.toString() ?? '']) {
+      ids.addAll(_squad(teamId).map((p) => p['id'].toString()));
+    }
+    final candidates = players.where((p) => ids.contains(p['id'].toString())).toList();
+    if (candidates.isEmpty) return;
+    String selected = '';
+    final id = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
+      title: Text(tr('Select Man of the Match', 'ম্যান অব দ্য ম্যাচ নির্বাচন করুন')),
+      content: DropdownButtonFormField<String>(
+        initialValue: '',
+        isExpanded: true,
+        decoration: InputDecoration(labelText: tr('Award winner', 'পুরস্কারপ্রাপ্ত খেলোয়াড়')),
+        items: [DropdownMenuItem(value: '', child: Text(tr('Select player', 'খেলোয়াড় নির্বাচন করুন'))), ...candidates.map((p) => DropdownMenuItem(value: p['id'].toString(), child: Text(p['name'].toString())))],
+        onChanged: (v) => selected = v ?? '',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, ''), child: Text(tr('Skip for now', 'এখন বাদ দিন'))),
+        FilledButton(onPressed: () { if (selected.isNotEmpty) Navigator.pop(ctx, selected); }, child: Text(tr('Save', 'সংরক্ষণ'))),
+      ],
+    ));
+    if (id != null && id.isNotEmpty) {
+      match['manOfTheMatchId'] = id;
+      match['manOfTheMatch'] = _playerName(id);
+      await _persist();
+      if (mounted) setState(() {});
+    }
+  }
+
   Future<void> _completeMatch() async {
     if (match['status'] == 'Completed') return;
     final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
@@ -501,7 +533,12 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
       content: Text(tr('Scoring and undo will be locked after completion.', 'সম্পন্ন হলে স্কোরিং ও Undo বন্ধ হবে।')),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cancel', 'বাতিল'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Complete', 'সম্পন্ন করুন')))],
     ));
-    if (yes == true) { match['status'] = 'Completed'; setState(() {}); await _persist(); }
+    if (yes == true) {
+      match['status'] = 'Completed';
+      setState(() {});
+      await _persist();
+      await _chooseManOfTheMatch();
+    }
   }
 
   Future<void> _undo() async {
