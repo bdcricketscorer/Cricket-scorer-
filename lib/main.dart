@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'player_profiles_page.dart';
 import 'team_squads_page.dart';
+import 'tournament_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -88,6 +89,13 @@ class _DashboardPageState extends State<DashboardPage> {
     await _loadData();
   }
 
+  Future<void> _openTournaments() async {
+    await Navigator.push(context, MaterialPageRoute(
+      builder: (_) => TournamentPage(isBangla: isBangla),
+    ));
+    await _loadData();
+  }
+
   Future<void> _openPlayers() async {
     await Navigator.push(context, MaterialPageRoute(
       builder: (_) => PlayerProfilesPage(isBangla: isBangla),
@@ -167,8 +175,8 @@ class _DashboardPageState extends State<DashboardPage> {
             title: tr('Tournaments', 'টুর্নামেন্ট'),
             subtitle: tr('Competitions', 'প্রতিযোগিতা'),
             count: tournaments.length,
-            onAdd: () => _addItem('tournaments', tr('Create Tournament', 'টুর্নামেন্ট তৈরি করুন')),
-            onOpen: () => _addItem('tournaments', tr('Create Tournament', 'টুর্নামেন্ট তৈরি করুন')),
+            onAdd: _openTournaments,
+            onOpen: _openTournaments,
           ),
           Card(
             color: const Color(0xFF102019),
