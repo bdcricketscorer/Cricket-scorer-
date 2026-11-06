@@ -1,0 +1,215 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const BDCricketScorer());
+}
+
+class BDCricketScorer extends StatelessWidget {
+  const BDCricketScorer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'BD Cricket Scorer',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF07110D),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF00C853),
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      home: const DashboardPage(),
+    );
+  }
+}
+
+class DashboardPage extends StatefulWidget {
+  const DashboardPage({super.key});
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  bool isBangla = false;
+  List<String> players = [];
+  List<String> teams = [];
+  List<String> tournaments = [];
+
+  String tr(String en, String bn) => isBangla ? bn : en;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      players = prefs.getStringList('players') ?? [];
+      teams = prefs.getStringList('teams') ?? [];
+      tournaments = prefs.getStringList('tournaments') ?? [];
+    });
+  }
+
+  Future<void> _addItem(String storageKey, String title) async {
+    final controller = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: tr('Enter name', 'নাম লিখুন'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(tr('Cancel', 'বাতিল')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: Text(tr('Save', 'সংরক্ষণ')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null || value.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final items = prefs.getStringList(storageKey) ?? [];
+    items.add(value);
+    await prefs.setStringList(storageKey, items);
+    await _loadData();
+  }
+
+  Widget _sectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required int count,
+    required VoidCallback onAdd,
+  }) {
+    return Card(
+      color: const Color(0xFF102019),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFF00C853).withValues(alpha: 0.16),
+          child: Icon(icon, color: const Color(0xFF00E676)),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text('$subtitle • $count'),
+        trailing: IconButton(
+          onPressed: onAdd,
+          icon: const Icon(Icons.add_circle, color: Color(0xFF00E676), size: 30),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('🏏 BD Cricket Scorer'),
+        actions: [
+          TextButton(
+            onPressed: () => setState(() => isBangla = !isBangla),
+            child: Text(isBangla ? 'EN' : 'বাং'),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF07552D), Color(0xFF102019)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tr('CRICKET CONTROL CENTRE', 'ক্রিকেট পরিচালনা কেন্দ্র'),
+                    style: const TextStyle(color: Color(0xFFB9F6CA), letterSpacing: 1.1),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    tr('Manage your game.', 'আপনার খেলা পরিচালনা করুন।'),
+                    style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(tr(
+                    'Players • Teams • Tournaments • Matches',
+                    'খেলোয়াড় • দল • টুর্নামেন্ট • ম্যাচ',
+                  )),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _sectionCard(
+              icon: Icons.person,
+              title: tr('Player Profiles', 'প্লেয়ার প্রোফাইল'),
+              subtitle: tr('No photo upload', 'ছবি আপলোড নেই'),
+              count: players.length,
+              onAdd: () => _addItem('players', tr('Add Player', 'প্লেয়ার যোগ করুন')),
+            ),
+            _sectionCard(
+              icon: Icons.groups,
+              title: tr('Teams & Squads', 'দল ও স্কোয়াড'),
+              subtitle: tr('Registered teams', 'নিবন্ধিত দল'),
+              count: teams.length,
+              onAdd: () => _addItem('teams', tr('Add Team', 'দল যোগ করুন')),
+            ),
+            _sectionCard(
+              icon: Icons.emoji_events,
+              title: tr('Tournaments', 'টুর্নামেন্ট'),
+              subtitle: tr('Competitions', 'প্রতিযোগিতা'),
+              count: tournaments.length,
+              onAdd: () => _addItem('tournaments', tr('Create Tournament', 'টুর্নামেন্ট তৈরি করুন')),
+            ),
+            Card(
+              color: const Color(0xFF102019),
+              child: ListTile(
+                leading: const CircleAvatar(
+                  child: Icon(Icons.sports_cricket, color: Color(0xFF00E676)),
+                ),
+                title: Text(tr('Matches & Live Scoring', 'ম্যাচ ও লাইভ স্কোরিং')),
+                subtitle: Text(tr('Coming in the next development step', 'পরবর্তী ধাপে তৈরি হবে')),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: Text(
+                tr('Local device storage • No account required', 'মোবাইলে ডাটা সংরক্ষণ • লগইন লাগবে না'),
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
