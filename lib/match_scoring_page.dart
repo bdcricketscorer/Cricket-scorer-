@@ -215,6 +215,8 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
 
   Future<void> _showMatchSetup() async {
     if (_setupShown || match['tossDone'] == true) return;
+    final existingInnings = match['innings'] as List? ?? [];
+    if (existingInnings.any((inn) => ((inn as Map)['events'] as List? ?? []).isNotEmpty)) { match['tossDone'] = true; return; }
     _setupShown = true;
     final a = match['teamAId'].toString();
     final b = match['teamBId'].toString();
@@ -320,16 +322,21 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     saving = false;
   }
 
-  Future<void> _addBall({int runs = 0, int batterRuns = 0, int extras = 0, bool legal = true, bool wicket = false}) async {
+  Future<void> _addBall({int runs = 0, int batterRuns = 0, int extras = 0, bool legal = true, bool wicket = false, String wicketType = '', String fielderId = ''}) async {
     if (_legalBalls() >= maxBalls || _wickets() >= 10 || match['status'] == 'Completed') return;
     final striker = current['strikerId']?.toString() ?? '';
+    final battingSquad = _squad(current['battingTeamId'].toString());
+    final bowlingSquad = _squad(current['bowlingTeamId'].toString());
+    if (battingSquad.length >= 2 && (striker.isEmpty || (current['nonStrikerId']?.toString() ?? '').isEmpty)) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Select both batters first.', 'আগে দুইজন ব্যাটার নির্বাচন করুন।')))); return; }
+    if (bowlingSquad.isNotEmpty && (current['bowlerId']?.toString() ?? '').isEmpty) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Select the bowler first.', 'আগে বোলার নির্বাচন করুন।')))); return; }
     final events = _events();
     final beforeStriker = striker;
     final beforeNon = current['nonStrikerId']?.toString() ?? '';
     final beforeBowler = current['bowlerId']?.toString() ?? '';
     events.add({
       'runs': runs, 'batterRuns': batterRuns, 'extras': extras,
-      'legal': legal, 'wicket': wicket, 'strikerId': striker,
+      'legal': legal, 'wicket': wicket, 'wicketType': wicketType, 'fielderId': fielderId,
+      'bowlerCredited': wicket && !['Run out', 'Retired hurt', 'Obstructing the field'].contains(wicketType), 'strikerId': striker,
       'bowlerId': beforeBowler, 'beforeStriker': beforeStriker,
       'beforeNonStriker': beforeNon, 'beforeBowler': beforeBowler,
     });
@@ -370,7 +377,15 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     await Share.share(lines.join('\\n'), subject: 'Cricket scoreboard');
   }
 
+  Future<void> _shareScoreboard() async {
+    final lines = <String>['BD Cricket Scorer', (match['teamA'] ?? _teamName(match['teamAId'].toString())).toString() + ' vs ' + (match['teamB'] ?? _teamName(match['teamBId'].toString())).toString(), 'Umpire: ' + (match['umpire'] ?? '—').toString()];
+    for (final inn in innings) { final balls = (inn['balls'] as num? ?? 0).toInt(); lines.add(_teamName(inn['battingTeamId'].toString()) + ': ' + inn['runs'].toString() + '/' + inn['wickets'].toString() + ' (' + (balls ~/ 6).toString() + '.' + (balls % 6).toString() + ')'); }
+    lines.add('Status: ' + (match['status'] ?? 'Live').toString());
+    await Share.share(lines.join('\\n'), subject: 'Cricket scoreboard');
+  }
+
   Future<void> _undo() async {
+    if (match['status'] == 'Completed') return;
     final events = _events();
     if (events.isEmpty) return;
     final last = events.removeLast();
@@ -490,7 +505,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
             _scoreButton('No-ball +1', () => _addBall(runs: 1, extras: 1, legal: false)),
             _scoreButton('Bye +1', () => _addBall(runs: 1, extras: 1)),
             _scoreButton('Leg-bye +1', () => _addBall(runs: 1, extras: 1)),
-            _scoreButton(tr('Wicket', 'উইকেট'), () => _addBall(legal: true, wicket: true), color: Colors.red.shade800),
+            _scoreButton(tr('Wicket', 'উইকেট'), _recordWicket, color: Colors.red.shade800),
           ],
         ),
         if (ended && currentIndex == 0 && match['status'] != 'Completed') ...[
@@ -498,6 +513,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
           FilledButton.icon(onPressed: _startSecondInnings,
             icon: const Icon(Icons.swap_horiz), label: Text(tr('Start 2nd Innings', '২য় ইনিংস শুরু করুন'))),
         ],
+        if (match['status'] != 'Completed') Padding(padding: const EdgeInsets.only(top: 14), child: FilledButton.icon(onPressed: _completeMatch, icon: const Icon(Icons.flag), label: Text(tr('Complete Match', 'ম্যাচ সম্পন্ন করুন')), style: FilledButton.styleFrom(backgroundColor: Colors.red.shade800))),
         const SizedBox(height: 18),
         Text(tr('Recent Balls', 'সাম্প্রতিক বল'), style: const TextStyle(fontWeight: FontWeight.bold)),
         if (events.isEmpty) Text(tr('No balls recorded yet.', 'এখনো কোনো বল রেকর্ড হয়নি।'), style: TextStyle(color: Colors.grey.shade500))
