@@ -196,14 +196,27 @@ class _TournamentPageState extends State<TournamentPage> {
   }
 
   Future<void> _delete(Map<String, dynamic> tournament) async {
-    final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+    final confirmName = TextEditingController();
+    final name = tournament['name'].toString();
+    final yes = await showDialog<bool>(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
       title: Text(tr('Delete tournament?', 'টুর্নামেন্ট মুছবেন?')),
-      content: Text(tr('The tournament will be removed. Its saved fixtures are not deleted.', 'টুর্নামেন্টটি মুছে যাবে। সংরক্ষিত ফিক্সচার মুছবে না।')),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(tr('This action cannot be undone. To confirm, type the tournament name exactly:', 'এই কাজটি আর ফিরিয়ে আনা যাবে না। নিশ্চিত করতে টুর্নামেন্টের নাম হুবহু লিখুন:')),
+        const SizedBox(height: 12),
+        Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orangeAccent)),
+        const SizedBox(height: 8),
+        TextField(controller: confirmName, autofocus: true, decoration: InputDecoration(labelText: tr('Tournament name', 'টুর্নামেন্টের নাম'))),
+      ]),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cancel', 'বাতিল'))),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Delete', 'মুছুন'))),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, confirmName.text.trim() == name),
+          style: FilledButton.styleFrom(backgroundColor: Colors.red.shade800),
+          child: Text(tr('Delete permanently', 'স্থায়ীভাবে মুছুন')),
+        ),
       ],
     ));
+    confirmName.dispose();
     if (yes != true) return;
     setState(() => tournaments.removeWhere((t) => t['id'] == tournament['id']));
     await _save();
@@ -242,7 +255,13 @@ class _TournamentPageState extends State<TournamentPage> {
                 Wrap(alignment: WrapAlignment.end, children: [
                   TextButton.icon(onPressed: () => _generate(t), icon: const Icon(Icons.event_note), label: Text(tr('Generate Fixtures', 'ফিক্সচার তৈরি'))),
                   IconButton(onPressed: () => _form(old: t), icon: const Icon(Icons.edit)),
-                  IconButton(onPressed: () => _delete(t), icon: const Icon(Icons.delete_outline, color: Colors.redAccent)),
+                  PopupMenuButton<String>(
+                    tooltip: tr('More options', 'আরও অপশন'),
+                    onSelected: (value) { if (value == 'delete') _delete(t); },
+                    itemBuilder: (_) => [
+                      PopupMenuItem(value: 'delete', child: ListTile(dense: true, leading: const Icon(Icons.delete_outline, color: Colors.redAccent), title: Text(tr('Delete tournament', 'টুর্নামেন্ট মুছুন')))),
+                    ],
+                  ),
                 ]),
               ],
             ));
