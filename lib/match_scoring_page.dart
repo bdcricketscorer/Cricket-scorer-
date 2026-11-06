@@ -365,7 +365,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     saving = false;
   }
 
-  Future<void> _addBall({int runs = 0, int batterRuns = 0, int extras = 0, bool legal = true, bool wicket = false, String wicketType = '', String fielderId = ''}) async {
+  Future<void> _addBall({int runs = 0, int batterRuns = 0, int extras = 0, bool legal = true, bool wicket = false, String wicketType = '', String fielderId = '', String dismissedBatterId = ''}) async {
     if (_legalBalls() >= maxBalls || _wickets() >= 10 || match['status'] == 'Completed') return;
     final striker = current['strikerId']?.toString() ?? '';
     final battingSquad = _squad(current['battingTeamId'].toString());
@@ -380,13 +380,16 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
       'runs': runs, 'batterRuns': batterRuns, 'extras': extras,
       'legal': legal, 'wicket': wicket, 'wicketType': wicketType, 'fielderId': fielderId,
       'bowlerCredited': wicket && !['Run out', 'Retired hurt', 'Obstructing the field'].contains(wicketType),
-      'dismissedBatterId': wicket ? striker : '', 'strikerId': striker,
+      'dismissedBatterId': wicket ? (dismissedBatterId.isNotEmpty ? dismissedBatterId : striker) : '', 'strikerId': striker,
       'bowlerId': beforeBowler, 'beforeStriker': beforeStriker,
       'beforeNonStriker': beforeNon, 'beforeBowler': beforeBowler,
     });
     current['events'] = events;
     if (wicket) {
-      current['strikerId'] = '';
+      final dismissed = dismissedBatterId.isNotEmpty ? dismissedBatterId : striker;
+      final dismissedSlot = dismissed == beforeNon ? 'nonStrikerId' : 'strikerId';
+      current[dismissedSlot] = '';
+      current['nextBatterSlot'] = dismissedSlot;
     } else {
       // Rotate strike only for runs completed by batters or running/byes/leg-byes.
       // A standalone no-ball or wide penalty does not change ends.
@@ -428,14 +431,24 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
   Future<void> _recordWicket() async {
     const types = ['Bowled', 'Caught', 'LBW', 'Stumped', 'Hit wicket', 'Run out', 'Retired hurt', 'Obstructing the field'];
     String kind = 'Bowled';
+    String dismissed = current['strikerId']?.toString() ?? '';
+    final strikerId = current['strikerId']?.toString() ?? '';
+    final nonStrikerId = current['nonStrikerId']?.toString() ?? '';
     final ok = await showDialog<bool>(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, refresh) => AlertDialog(
       title: Text(tr('Wicket details', 'উইকেটের ধরন')),
-      content: DropdownButtonFormField<String>(value: kind, decoration: InputDecoration(labelText: tr('How out?', 'কীভাবে আউট?')),
-        items: types.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(), onChanged: (v) => refresh(() => kind = v ?? 'Bowled')),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        DropdownButtonFormField<String>(value: kind, decoration: InputDecoration(labelText: tr('How out?', 'কীভাবে আউট?')),
+          items: types.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(), onChanged: (v) => refresh(() => kind = v ?? 'Bowled')),
+        const SizedBox(height: 10),
+        if (strikerId.isNotEmpty && nonStrikerId.isNotEmpty) DropdownButtonFormField<String>(value: dismissed,
+          decoration: InputDecoration(labelText: tr('Who is out?', 'কে আউট হয়েছে?')),
+          items: [DropdownMenuItem(value: strikerId, child: Text(_playerName(strikerId))), DropdownMenuItem(value: nonStrikerId, child: Text(_playerName(nonStrikerId)))],
+          onChanged: (v) => refresh(() => dismissed = v ?? strikerId)),
+      ]),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cancel', 'বাতিল'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Confirm', 'নিশ্চিত করুন')))],
     )));
     if (ok == true) {
-      await _addBall(legal: true, wicket: true, wicketType: kind);
+      await _addBall(legal: true, wicket: true, wicketType: kind, dismissedBatterId: dismissed);
       if (mounted && _wickets() < 10 && match['status'] != 'Completed') await _chooseNewBatter();
     }
   }
@@ -458,7 +471,13 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
       content: DropdownButtonFormField<String>(value: '', items: [const DropdownMenuItem(value: '', child: Text('Select player')), ...options.map((p) => DropdownMenuItem(value: p['id'].toString(), child: Text(p['name'].toString())))], onChanged: (v) => selected = v ?? ''),
       actions: [FilledButton(onPressed: () { if (selected.isNotEmpty) Navigator.pop(ctx, selected); }, child: Text(tr('Confirm', 'নিশ্চিত করুন')))],
     ));
-    if (id != null) { current['strikerId'] = id; setState(() {}); await _persist(); }
+    if (id != null) {
+      final slot = current['nextBatterSlot']?.toString() ?? 'strikerId';
+      current[slot] = id;
+      current.remove('nextBatterSlot');
+      setState(() {});
+      await _persist();
+    }
   }
 
   Future<void> _chooseNextBowler(String previous) async {
