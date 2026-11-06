@@ -379,7 +379,8 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     events.add({
       'runs': runs, 'batterRuns': batterRuns, 'extras': extras,
       'legal': legal, 'wicket': wicket, 'wicketType': wicketType, 'fielderId': fielderId,
-      'bowlerCredited': wicket && !['Run out', 'Retired hurt', 'Obstructing the field'].contains(wicketType), 'strikerId': striker,
+      'bowlerCredited': wicket && !['Run out', 'Retired hurt', 'Obstructing the field'].contains(wicketType),
+      'dismissedBatterId': wicket ? striker : '', 'strikerId': striker,
       'bowlerId': beforeBowler, 'beforeStriker': beforeStriker,
       'beforeNonStriker': beforeNon, 'beforeBowler': beforeBowler,
     });
@@ -443,7 +444,12 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     final squad = _squad(current['battingTeamId'].toString());
     if (squad.isEmpty || _wickets() >= 10) return;
     final used = <String>{current['nonStrikerId']?.toString() ?? ''};
-    for (final e in _events()) { if ((e['strikerId'] ?? '').toString().isNotEmpty) used.add(e['strikerId'].toString()); }
+    for (final e in _events()) {
+      if (e['wicket'] == true) {
+        final dismissed = (e['dismissedBatterId'] ?? e['strikerId'] ?? '').toString();
+        if (dismissed.isNotEmpty) used.add(dismissed);
+      }
+    }
     final options = squad.where((p) => !used.contains(p['id'].toString())).toList();
     if (options.isEmpty) return;
     String selected = '';
