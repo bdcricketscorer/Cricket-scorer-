@@ -4,8 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 
 class MatchCenterPage extends StatefulWidget {
-  const MatchCenterPage({super.key, required this.isBangla});
+  const MatchCenterPage({super.key, required this.isBangla, this.tournamentId});
   final bool isBangla;
+  final String? tournamentId;
   @override
   State<MatchCenterPage> createState() => _MatchCenterPageState();
 }
@@ -99,6 +100,39 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
     await _saveFriendly();
   }
 
+  Future<void> _restartMatch(Map<String, dynamic> source) async {
+    final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: Text(tr('Restart this match?', 'ম্যাচটি আবার শুরু করবেন?')),
+      content: Text(tr('All innings, scores, toss and ball records for this match will be reset.', 'এই ম্যাচের সব ইনিংস, স্কোর, টস ও বলের রেকর্ড মুছে নতুন করে শুরু হবে।')),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cancel', 'বাতিল'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Restart', 'রিস্টার্ট')))],
+    ));
+    if (yes != true) return;
+    final isFriendly = (source['tournamentId']?.toString() ?? '').isEmpty;
+    final list = isFriendly ? friendly : fixtures;
+    final i = list.indexWhere((m) => m['id'] == source['id']);
+    if (i < 0) return;
+    list[i] = {...list[i], 'status': 'Scheduled', 'innings': <Map<String,dynamic>>[], 'currentInnings': 0,
+      'tossDone': false, 'tossWinnerId': '', 'tossDecision': '', 'umpire': ''};
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(isFriendly ? 'friendly_matches_v1' : 'tournament_fixtures_v1', jsonEncode(list));
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _deleteMatch(Map<String, dynamic> source) async {
+    final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: Text(tr('Delete match?', 'ম্যাচটি মুছে ফেলবেন?')),
+      content: Text(tr('This match and its score records will be permanently deleted.', 'ম্যাচটি ও এর সব স্কোর রেকর্ড স্থায়ীভাবে মুছে যাবে।')),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cancel', 'বাতিল'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Delete', 'মুছুন')))],
+    ));
+    if (yes != true) return;
+    final isFriendly = (source['tournamentId']?.toString() ?? '').isEmpty;
+    final list = isFriendly ? friendly : fixtures;
+    list.removeWhere((m) => m['id'] == source['id']);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(isFriendly ? 'friendly_matches_v1' : 'tournament_fixtures_v1', jsonEncode(list));
+    if (mounted) setState(() {});
+  }
+
   Future<void> _openMatch(Map<String, dynamic> source, {required bool isFriendly}) async {
     final copy = Map<String, dynamic>.from(source);
     await Navigator.push(context, MaterialPageRoute(builder: (_) =>
@@ -139,7 +173,13 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
           ' • ' + match['overs'].toString() + ' overs\n' +
           (innings.isEmpty ? status : score(0) + '  |  ' + (innings.length > 1 ? score(1) : '—') + ' • ' + status)),
         isThreeLine: true,
-        trailing: const Icon(Icons.chevron_right),
+        trailing: PopupMenuButton<String>(
+          onSelected: (v) { if (v == 'restart') _restartMatch(match); if (v == 'delete') _deleteMatch(match); },
+          itemBuilder: (_) => [
+            if (status != 'Scheduled') PopupMenuItem(value: 'restart', child: ListTile(dense: true, leading: const Icon(Icons.restart_alt), title: Text(tr('Restart match', 'ম্যাচ রিস্টার্ট')))),
+            PopupMenuItem(value: 'delete', child: ListTile(dense: true, leading: const Icon(Icons.delete_outline, color: Colors.red), title: Text(tr('Delete match', 'ম্যাচ ডিলিট')))),
+          ],
+        ),
         onTap: () => _openMatch(match, isFriendly: isFriendly),
       ),
     );
@@ -147,16 +187,17 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final scheduled = fixtures.where((m) => m['status'] != 'Completed').toList();
-    final completed = fixtures.where((m) => m['status'] == 'Completed').toList();
+    final selectedFixtures = tournamentId == null ? fixtures : fixtures.where((m) => m['tournamentId']?.toString() == tournamentId).toList();
+    final scheduled = selectedFixtures.where((m) => m['status'] != 'Completed').toList();
+    final completed = selectedFixtures.where((m) => m['status'] == 'Completed').toList();
     return Scaffold(
-      appBar: AppBar(title: Text(tr('Matches & Live Scoring', 'ম্যাচ ও লাইভ স্কোরিং'))),
-      floatingActionButton: FloatingActionButton.extended(
+      appBar: AppBar(title: Text(tournamentId == null ? tr('Matches & Live Scoring', 'ম্যাচ ও লাইভ স্কোরিং') : (selectedFixtures.isNotEmpty ? selectedFixtures.first['tournament']?.toString() ?? tr('Tournament Schedule', 'টুর্নামেন্ট শিডিউল') : tr('Tournament Schedule', 'টুর্নামেন্ট শিডিউল')))),
+      floatingActionButton: tournamentId == null ? FloatingActionButton.extended(
         onPressed: _createMatch, icon: const Icon(Icons.add),
-        label: Text(tr('Friendly Match', 'প্রীতি ম্যাচ'))),
+        label: Text(tr('Friendly Match', 'প্রীতি ম্যাচ'))) : null,
       body: loading ? const Center(child: CircularProgressIndicator()) :
         RefreshIndicator(onRefresh: _load, child: ListView(padding: const EdgeInsets.all(12), children: [
-          if (friendly.isNotEmpty) ...[
+          if (tournamentId == null && friendly.isNotEmpty) ...[
             Text(tr('Friendly Matches', 'প্রীতি ম্যাচ'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             ...friendly.map((m) => _matchCard(m, isFriendly: true)),
             const SizedBox(height: 12),
@@ -164,7 +205,7 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
           Text(tr('Tournament Fixtures', 'টুর্নামেন্টের ফিক্সচার'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
           if (scheduled.isEmpty) Padding(
             padding: const EdgeInsets.all(18),
-            child: Text(tr('No scheduled tournament matches. Generate fixtures in Tournament Management.', 'কোনো নির্ধারিত ম্যাচ নেই। Tournament Management থেকে ফিক্সচার তৈরি করুন।'))),
+            child: Text(tr('No matches in this tournament yet. Generate fixtures in Tournament Management.', 'এই টুর্নামেন্টে এখনো ম্যাচ নেই। Tournament Management থেকে ফিক্সচার তৈরি করুন।'))),
           ...scheduled.map((m) => _matchCard(m, isFriendly: false)),
           if (completed.isNotEmpty) ...[
             const SizedBox(height: 12),
