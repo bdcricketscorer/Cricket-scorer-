@@ -497,32 +497,61 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
 
   Future<void> _chooseManOfTheMatch() async {
     if ((match['manOfTheMatchId']?.toString() ?? '').isNotEmpty) return;
-    final ids = <String>{};
+    final eligible = <String>{};
     for (final teamId in [match['teamAId']?.toString() ?? '', match['teamBId']?.toString() ?? '']) {
-      ids.addAll(_squad(teamId).map((p) => p['id'].toString()));
+      eligible.addAll(_squad(teamId).map((p) => p['id'].toString()));
     }
-    final candidates = players.where((p) => ids.contains(p['id'].toString())).toList();
-    if (candidates.isEmpty) return;
-    String selected = '';
-    final id = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
-      title: Text(tr('Select Man of the Match', 'ম্যান অব দ্য ম্যাচ নির্বাচন করুন')),
-      content: DropdownButtonFormField<String>(
-        initialValue: '',
-        isExpanded: true,
-        decoration: InputDecoration(labelText: tr('Award winner', 'পুরস্কারপ্রাপ্ত খেলোয়াড়')),
-        items: [DropdownMenuItem(value: '', child: Text(tr('Select player', 'খেলোয়াড় নির্বাচন করুন'))), ...candidates.map((p) => DropdownMenuItem(value: p['id'].toString(), child: Text(p['name'].toString())))],
-        onChanged: (v) => selected = v ?? '',
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, ''), child: Text(tr('Skip for now', 'এখন বাদ দিন'))),
-        FilledButton(onPressed: () { if (selected.isNotEmpty) Navigator.pop(ctx, selected); }, child: Text(tr('Save', 'সংরক্ষণ'))),
-      ],
-    ));
-    if (id != null && id.isNotEmpty) {
-      match['manOfTheMatchId'] = id;
-      match['manOfTheMatch'] = _playerName(id);
-      await _persist();
-      if (mounted) setState(() {});
+    if (eligible.isEmpty) return;
+    final performance = <String, Map<String, num>>{};
+    for (final id in eligible) {
+      performance[id] = {'runs': 0, 'batBalls': 0, 'wickets': 0, 'bowlBalls': 0, 'conceded': 0};
+    }
+    for (final inn in innings) {
+      for (final raw in (inn['events'] as List? ?? [])) {
+        final e = Map<String, dynamic>.from(raw);
+        final batter = (e['strikerId'] ?? '').toString();
+        final bowler = (e['bowlerId'] ?? '').toString();
+        final batterRuns = (e['batterRuns'] as num?)?.toInt() ?? 0;
+        final totalRuns = (e['runs'] as num?)?.toInt() ?? 0;
+        final extras = (e['extras'] as num?)?.toInt() ?? 0;
+        final legal = e['legal'] == true;
+        if (performance.containsKey(batter)) {
+          performance[batter]!['runs'] = performance[batter]!['runs']! + batterRuns;
+          if (legal) performance[batter]!['batBalls'] = performance[batter]!['batBalls']! + 1;
+        }
+        if (performance.containsKey(bowler)) {
+          final p = performance[bowler]!;
+          if (legal) p['bowlBalls'] = p['bowlBalls']! + 1;
+          final conceded = totalRuns - (legal ? extras : 0);
+          p['conceded'] = p['conceded']! + (conceded < 0 ? 0 : conceded);
+          if (e['wicket'] == true && e['bowlerCredited'] == true) p['wickets'] = p['wickets']! + 1;
+        }
+      }
+    }
+    String winner = '';
+    double bestScore = -double.infinity;
+    for (final entry in performance.entries) {
+      final p = entry.value;
+      final runs = p['runs']!.toDouble();
+      final batBalls = p['batBalls']!.toDouble();
+      final wickets = p['wickets']!.toDouble();
+      final bowlBalls = p['bowlBalls']!.toDouble();
+      final conceded = p['conceded']!.toDouble();
+      final strikeRate = batBalls == 0 ? 0 : runs * 100 / batBalls;
+      final economy = bowlBalls == 0 ? 0 : conceded * 6 / bowlBalls;
+      final score = runs + wickets * 20 + (strikeRate > 100 ? (strikeRate - 100) * 0.10 : 0) +
+        (wickets > 0 && bowlBalls > 0 ? (6 - economy) * 1.5 : 0);
+      if (score > bestScore) { bestScore = score; winner = entry.key; }
+    }
+    if (winner.isEmpty || bestScore <= 0) return;
+    match['manOfTheMatchId'] = winner;
+    match['manOfTheMatch'] = _playerName(winner);
+    await _persist();
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('Man of the Match: ', 'ম্যান অব দ্য ম্যাচ: ') + _playerName(winner)),
+      ));
     }
   }
 
@@ -676,8 +705,10 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
         if (events.isEmpty) Text(tr('No balls recorded yet.', 'এখনো কোনো বল রেকর্ড হয়নি।'), style: TextStyle(color: Colors.grey.shade500))
         else ...events.reversed.take(12).map((e) {
           final batter = _playerName(e['strikerId']?.toString() ?? '');
+          final batterRuns = (e['batterRuns'] as num?)?.toInt() ?? 0;
           final label = e['wicket'] == true ? tr('WICKET', 'উইকেট') :
-            (e['extras'] == 1 ? tr('EXTRA', 'অতিরিক্ত') : (e['batterRuns'] ?? 0).toString() + ' ' + tr('run(s)', 'রান'));
+            (e['extras'] == 1 ? tr('EXTRA', 'অতিরিক্ত') :
+              (batterRuns == 0 ? '• ' + tr('DOT BALL', 'ডট বল') : batterRuns.toString() + ' ' + tr('run(s)', 'রান')));
           return ListTile(dense: true, leading: Icon(e['wicket'] == true ? Icons.sports_cricket : Icons.circle, size: 14,
             color: e['wicket'] == true ? Colors.redAccent : const Color(0xFF00E676)),
             title: Text(label), subtitle: Text(batter.isEmpty ? '—' : batter));
