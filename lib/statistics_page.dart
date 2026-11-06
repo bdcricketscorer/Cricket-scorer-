@@ -109,11 +109,6 @@ class _StatisticsPageState extends State<StatisticsPage> with SingleTickerProvid
     };
   }
 
-  String _playerName(String id) {
-    final found = players.where((p) => p['id'].toString() == id).toList();
-    return found.isEmpty ? tr('Unknown player', 'অজানা খেলোয়াড়') : found.first['name'].toString();
-  }
-
   String _teamName(String id) {
     final found = teams.where((t) => t['id'].toString() == id).toList();
     return found.isEmpty ? tr('Unknown team', 'অজানা দল') : found.first['name'].toString();
