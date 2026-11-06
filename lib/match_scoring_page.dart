@@ -342,7 +342,6 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
 
   Future<void> _startSecondInnings() async {
     if (currentIndex != 0 || (_legalBalls() < maxBalls && _wickets() < 10)) return;
-    final first = current;
     final second = <String, dynamic>{
       'battingTeamId': match['teamBId'], 'bowlingTeamId': match['teamAId'],
       'runs': 0, 'wickets': 0, 'balls': 0, 'events': <Map<String, dynamic>>[],
