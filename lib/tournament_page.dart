@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'match_scoring_page.dart';
 
 class TournamentPage extends StatefulWidget {
   const TournamentPage({super.key, required this.isBangla});
@@ -187,6 +188,13 @@ class _TournamentPageState extends State<TournamentPage> {
     setState(() {});
   }
 
+  Future<void> _openTournamentMatches(Map<String, dynamic> tournament) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => MatchCenterPage(
+      isBangla: widget.isBangla, tournamentId: tournament['id'].toString(),
+    )));
+    await _load();
+  }
+
   Future<void> _delete(Map<String, dynamic> tournament) async {
     final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: Text(tr('Delete tournament?', 'টুর্নামেন্ট মুছবেন?')),
@@ -223,6 +231,12 @@ class _TournamentPageState extends State<TournamentPage> {
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               children: [
                 Align(alignment: Alignment.centerLeft, child: Text(ids.isEmpty ? tr('No teams registered', 'কোনো দল নিবন্ধিত নেই') : ids.map(_teamName).join(', '))),
+                const SizedBox(height: 8),
+                SizedBox(width: double.infinity, child: FilledButton.icon(
+                  onPressed: () => _openTournamentMatches(t),
+                  icon: const Icon(Icons.calendar_month),
+                  label: Text(tr('View Match Schedule & Live Scoring', 'ম্যাচ শিডিউল ও লাইভ স্কোর দেখুন')),
+                )),
                 if (t['fixtureGenerated'] == true) Align(alignment: Alignment.centerLeft, child: Padding(
                   padding: const EdgeInsets.only(top: 6), child: Text(tr('Fixtures generated', 'ফিক্সচার তৈরি হয়েছে'), style: const TextStyle(color: Color(0xFF00E676))))),
                 Wrap(alignment: WrapAlignment.end, children: [
