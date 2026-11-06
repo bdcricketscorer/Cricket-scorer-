@@ -625,6 +625,150 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
       style: FilledButton.styleFrom(backgroundColor: color ?? const Color(0xFF07552D)),
       onPressed: action, child: Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))));
 
+  Map<String, int> _batterFigures(String playerId) {
+    var runs = 0, balls = 0, fours = 0, sixes = 0;
+    for (final e in _events()) {
+      if ((e['strikerId'] ?? '').toString() != playerId) continue;
+      final r = (e['batterRuns'] as num?)?.toInt() ?? 0;
+      runs += r;
+      if (e['legal'] == true) balls++;
+      if (r == 4) fours++;
+      if (r == 6) sixes++;
+    }
+    return {'runs': runs, 'balls': balls, 'fours': fours, 'sixes': sixes};
+  }
+
+  Map<String, int> _bowlerFigures(String playerId) {
+    var runs = 0, balls = 0, wickets = 0;
+    for (final e in _events()) {
+      if ((e['bowlerId'] ?? '').toString() != playerId) continue;
+      runs += (e['runs'] as num?)?.toInt() ?? 0;
+      if (e['legal'] == true) balls++;
+      if (e['wicket'] == true && e['bowlerCredited'] == true) wickets++;
+    }
+    return {'runs': runs, 'balls': balls, 'wickets': wickets};
+  }
+
+  String _strikeRate(Map<String, int> figures) {
+    final balls = figures['balls'] ?? 0;
+    if (balls == 0) return '0.0';
+    return ((figures['runs'] ?? 0) * 100 / balls).toStringAsFixed(1);
+  }
+
+  Widget _scoreboardPlayerRow(String name, Map<String, int> figures, {bool highlighted = false}) {
+    final color = highlighted ? const Color(0xFFB9F6CA) : Colors.white;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(children: [
+        if (highlighted) const Padding(
+          padding: EdgeInsets.only(right: 6),
+          child: Icon(Icons.circle, size: 7, color: Color(0xFF00E676))),
+        Expanded(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: color, fontWeight: highlighted ? FontWeight.w800 : FontWeight.w500))),
+        Text('${figures['runs']}  (${figures['balls']})',
+          style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+        const SizedBox(width: 10),
+        SizedBox(width: 43, child: Text(_strikeRate(figures),
+          textAlign: TextAlign.end, style: TextStyle(color: Colors.white70, fontSize: 12))),
+      ]),
+    );
+  }
+
+  Widget _liveScoreboard(String battingId, String bowlingId) {
+    final strikerId = current['strikerId']?.toString() ?? '';
+    final nonStrikerId = current['nonStrikerId']?.toString() ?? '';
+    final bowlerId = current['bowlerId']?.toString() ?? '';
+    final striker = _batterFigures(strikerId);
+    final nonStriker = _batterFigures(nonStrikerId);
+    final bowler = _bowlerFigures(bowlerId);
+    final balls = _legalBalls();
+    final runRate = balls == 0 ? 0.0 : _runs() * 6 / balls;
+    final target = currentIndex == 1 && innings.isNotEmpty
+        ? ((innings[0]['runs'] as num?)?.toInt() ?? 0) + 1 : null;
+    final remaining = target == null ? null : (target - _runs()).clamp(0, target);
+    final ballsLeft = (maxBalls - balls).clamp(0, maxBalls);
+    final requiredRate = target == null || ballsLeft == 0
+        ? null : (remaining! * 6 / ballsLeft);
+    final bowlerName = bowlerId.isEmpty ? tr('Select bowler', 'বোলার নির্বাচন করুন') : _playerName(bowlerId);
+    final strikerName = strikerId.isEmpty ? tr('Select striker', 'স্ট্রাইকার নির্বাচন করুন') : _playerName(strikerId);
+    final nonStrikerName = nonStrikerId.isEmpty ? tr('Select non-striker', 'নন-স্ট্রাইকার নির্বাচন করুন') : _playerName(nonStrikerId);
+    final panel = const Color(0xFF10251D);
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xFF123D2A), Color(0xFF071A12)]),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFF26734A).withOpacity(.65)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.22), blurRadius: 16, offset: const Offset(0, 7))],
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+      child: Column(children: [
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.circle, size: 8, color: Color(0xFF00E676)),
+          const SizedBox(width: 7),
+          Text(match['status'] == 'Completed' ? tr('FINAL SCORE', 'চূড়ান্ত স্কোর') : tr('LIVE SCORE', 'লাইভ স্কোর'),
+            style: const TextStyle(color: Color(0xFF9BE7B5), fontSize: 11, letterSpacing: 2, fontWeight: FontWeight.w800)),
+        ]),
+        const SizedBox(height: 5),
+        Text(_teamName(battingId), style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 1),
+        FittedBox(fit: BoxFit.scaleDown, child: Text('${_runs()}/${_wickets()}',
+          style: const TextStyle(color: Colors.white, fontSize: 56, height: 1.05, fontWeight: FontWeight.w900, letterSpacing: -1.5))),
+        Text('${_oversText()} / ${match['overs'] ?? 10} ${tr('OVERS', 'ওভার')}',
+          style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 1)),
+        const SizedBox(height: 14),
+        Container(height: 1, color: Colors.white.withOpacity(.13)),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('BATTER', 'ব্যাটার'), style: const TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1.4, fontWeight: FontWeight.bold)),
+            _scoreboardPlayerRow(strikerName, striker, highlighted: true),
+            _scoreboardPlayerRow(nonStrikerName, nonStriker),
+          ])),
+          const SizedBox(width: 10),
+          Container(width: 1, height: 74, color: Colors.white.withOpacity(.13)),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('BOWLER', 'বোলার'), style: const TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1.4, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 9),
+            Text(bowlerName, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+            const SizedBox(height: 5),
+            Text('${bowler['balls']! ~/ 6}.${bowler['balls']! % 6}  •  ${bowler['runs']} R',
+              style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 16, fontWeight: FontWeight.bold)),
+            Text('${bowler['wickets']} ${tr('WICKETS', 'উইকেট')}',
+              style: const TextStyle(color: Colors.white60, fontSize: 11)),
+          ])),
+        ]),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(color: panel, borderRadius: BorderRadius.circular(13)),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          child: Row(children: [
+            _scoreMetric(tr('RUN RATE', 'রান রেট'), runRate.toStringAsFixed(2)),
+            if (target != null) _scoreMetric(tr('TARGET', 'লক্ষ্য'), target.toString()),
+            if (requiredRate != null) _scoreMetric(tr('REQ. RATE', 'প্রয়োজনীয়'), requiredRate.toStringAsFixed(2)),
+            _scoreMetric(tr('PARTNERSHIP', 'জুটি'), '${striker['runs']! + nonStriker['runs']!}'),
+          ]),
+        ),
+        const SizedBox(height: 8),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(tr('R  Runs   B  Balls   SR  Strike rate', 'R রান   B বল   SR স্ট্রাইক রেট'),
+            style: const TextStyle(color: Colors.white54, fontSize: 9)),
+          if (target != null)
+            Text(tr('$remaining runs • $ballsLeft balls left', '$remaining রান • $ballsLeft বল বাকি'),
+              style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 10, fontWeight: FontWeight.w700)),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _scoreMetric(String label, String value) => Expanded(child: Column(children: [
+    Text(label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: .5)),
+    const SizedBox(height: 4),
+    Text(value, style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 14, fontWeight: FontWeight.w900)),
+  ]));
+
   @override
   Widget build(BuildContext context) {
     _ensureInnings();
@@ -640,26 +784,14 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
         actions: [IconButton(onPressed: _shareScoreboard, tooltip: tr('Share scoreboard', 'স্কোরবোর্ড শেয়ার'), icon: const Icon(Icons.share)), if (match['status'] != 'Completed') IconButton(onPressed: events.isEmpty ? null : _undo, tooltip: tr('Undo last ball', 'শেষ বল বাতিল'), icon: const Icon(Icons.undo))],
       ),
       body: ListView(padding: const EdgeInsets.all(14), children: [
-        Card(color: const Color(0xFF102019), child: Padding(
-          padding: const EdgeInsets.all(18), child: Column(children: [
-            Text(_teamName(battingId), style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 16)),
-            const SizedBox(height: 4),
-            Text(_runs().toString() + '/' + _wickets().toString(),
-              style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
-            Text(_oversText() + ' / ' + (match['overs']?.toString() ?? '10') + ' ' + tr('overs', 'ওভার'),
-              style: const TextStyle(fontSize: 16)),
-            if (currentIndex == 1 && innings.isNotEmpty)
-              Text(tr('Target: ', 'লক্ষ্য: ') + (((innings[0]['runs'] as num?)?.toInt() ?? 0) + 1).toString()),
-            const SizedBox(height: 8),
-            Text(_teamName(bowlingId) + '  •  ' + (match['tournament']?.toString() ?? 'Friendly'),
-              style: TextStyle(color: Colors.grey.shade400)),
-          ]))),
+        _liveScoreboard(battingId, bowlingId),
+        const SizedBox(height: 12),
         if (match['status'] == 'Completed')
           Card(child: Padding(padding: const EdgeInsets.all(12), child: Text(tr('Match completed', 'ম্যাচ শেষ হয়েছে'), textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold)))),
         if (batting.isEmpty || bowling.isEmpty)
           Card(child: Padding(padding: const EdgeInsets.all(12), child: Text(tr('Add players to both team squads to use player-by-player scoring. You can still view the match score here.', 'প্লেয়ারভিত্তিক স্কোরিংয়ের জন্য দুই দলের স্কোয়াডে খেলোয়াড় যোগ করুন। এখানে ম্যাচের স্কোর দেখা যাবে।')))),
         if (batting.isNotEmpty) ...[
-          Text(tr('Batting', 'ব্যাটিং'), style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(tr('Batting lineup', 'ব্যাটিং লাইনআপ'), style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Row(children: [
             Expanded(child: _playerSelect(tr('Striker', 'স্ট্রাইকার'), 'strikerId', batting)),
@@ -671,8 +803,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
           const SizedBox(height: 10),
           _playerSelect(tr('Bowler', 'বোলার'), 'bowlerId', bowling),
         ],
-        if ((current['bowlerId']?.toString() ?? '').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(tr('Bowler wickets: ', 'বোলারের উইকেট: ') + _events().where((e) => e['wicket'] == true && e['bowlerId'] == current['bowlerId'] && e['bowlerCredited'] == true).length.toString(), style: const TextStyle(color: Color(0xFFB9F6CA)))),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         Text(tr('Runs', 'রান'), style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         GridView.count(
