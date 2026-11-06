@@ -348,12 +348,12 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
         current['strikerId'] = beforeNon;
         current['nonStrikerId'] = beforeStriker;
       }
-      if (legal && (_legalBalls() % 6 == 0)) {
-        final s = current['strikerId'];
-        current['strikerId'] = current['nonStrikerId'];
-        current['nonStrikerId'] = s;
-        current['bowlerId'] = '';
-      }
+    }
+    if (legal && _legalBalls() > 0 && _legalBalls() % 6 == 0) {
+      final s = current['strikerId'];
+      current['strikerId'] = current['nonStrikerId'];
+      current['nonStrikerId'] = s;
+      current['bowlerId'] = '';
     }
     final target = innings.isNotEmpty && currentIndex == 1
       ? ((innings[0]['runs'] as num?)?.toInt() ?? 0) + 1 : null;
@@ -449,7 +449,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
   Future<void> _startSecondInnings() async {
     if (currentIndex != 0 || (_legalBalls() < maxBalls && _wickets() < 10)) return;
     final second = <String, dynamic>{
-      'battingTeamId': match['teamBId'], 'bowlingTeamId': match['teamAId'],
+      'battingTeamId': current['bowlingTeamId'], 'bowlingTeamId': current['battingTeamId'],
       'runs': 0, 'wickets': 0, 'balls': 0, 'events': <Map<String, dynamic>>[],
       'strikerId': '', 'nonStrikerId': '', 'bowlerId': '',
     };
