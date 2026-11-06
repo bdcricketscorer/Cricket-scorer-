@@ -63,7 +63,7 @@ class _PlayerProfilesPageState extends State<PlayerProfilesPage> {
             _input(fields['name']!, tr('Player name *', 'প্লেয়ারের নাম *'), required: true),
             _input(fields['jersey']!, tr('Jersey number', 'জার্সি নম্বর'), number: true),
             DropdownButtonFormField<String>(
-              value: role,
+              initialValue: role,
               decoration: InputDecoration(labelText: tr('Player role', 'প্লেয়ারের ভূমিকা'), border: const OutlineInputBorder()),
               items: const [
                 DropdownMenuItem(value: 'Batsman', child: Text('Batsman')),
