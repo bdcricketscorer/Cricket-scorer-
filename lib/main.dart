@@ -59,29 +59,6 @@ class _DashboardPageState extends State<DashboardPage> {
     });
   }
 
-  Future<void> _addItem(String storageKey, String title) async {
-    final controller = TextEditingController();
-    final value = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: TextField(controller: controller, autofocus: true,
-          decoration: InputDecoration(hintText: tr('Enter name', 'নাম লিখুন'), border: const OutlineInputBorder())),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(tr('Cancel', 'বাতিল'))),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: Text(tr('Save', 'সংরক্ষণ'))),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (value == null || value.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    final items = prefs.getStringList(storageKey) ?? [];
-    items.add(value);
-    await prefs.setStringList(storageKey, items);
-    await _loadData();
-  }
-
   Future<void> _openTeams() async {
     await Navigator.push(context, MaterialPageRoute(
       builder: (_) => TeamSquadsPage(isBangla: isBangla),
