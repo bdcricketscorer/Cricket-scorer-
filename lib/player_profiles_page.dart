@@ -103,6 +103,16 @@ class _PlayerProfilesPageState extends State<PlayerProfilesPage> {
     );
     for (final c in fields.values) { c.dispose(); }
     if (result == null) return;
+    final normalizedName = result['name'].toString().trim().toLowerCase();
+    final duplicate = players.any((p) =>
+      p['id'].toString() != result['id'].toString() &&
+      p['name'].toString().trim().toLowerCase() == normalizedName);
+    if (duplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('A player with this name is already registered.', 'এই নামে একজন খেলোয়াড় আগে থেকেই নিবন্ধিত আছে।')),
+      ));
+      return;
+    }
     setState(() {
       final i = players.indexWhere((p) => p['id'] == result['id']);
       if (i < 0) { players.add(result); } else { players[i] = result; }
