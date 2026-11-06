@@ -109,6 +109,20 @@ class _TournamentPageState extends State<TournamentPage> {
       )));
     name.dispose(); overs.dispose();
     if (result == null) return;
+    final registeredPlayers = <String, String>{};
+    for (final teamId in (result['teamIds'] as List).map((e) => e.toString())) {
+      final team = teams.where((x) => x['id'].toString() == teamId).toList();
+      if (team.isEmpty) continue;
+      for (final playerId in (team.first['playerIds'] as List? ?? []).map((e) => e.toString())) {
+        if (registeredPlayers.containsKey(playerId)) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(tr('A player is already included in another selected team. Remove the duplicate before saving.', 'একজন খেলোয়াড় নির্বাচিত অন্য একটি দলের স্কোয়াডেও আছে। সংরক্ষণের আগে ডুপ্লিকেট সরান।')),
+          ));
+          return;
+        }
+        registeredPlayers[playerId] = teamId;
+      }
+    }
     final id = old?['id']?.toString() ?? DateTime.now().microsecondsSinceEpoch.toString();
     final index = tournaments.indexWhere((t) => t['id'] == id);
     final updated = <String, dynamic>{'id': id, ...result, 'fixtureGenerated': old?['fixtureGenerated'] == true};
