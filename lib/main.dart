@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'player_profiles_page.dart';
 import 'team_squads_page.dart';
 import 'tournament_page.dart';
+import 'match_scoring_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -76,6 +77,13 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _openPlayers() async {
     await Navigator.push(context, MaterialPageRoute(
       builder: (_) => PlayerProfilesPage(isBangla: isBangla),
+    ));
+    await _loadData();
+  }
+
+  Future<void> _openMatches() async {
+    await Navigator.push(context, MaterialPageRoute(
+      builder: (_) => MatchCenterPage(isBangla: isBangla),
     ));
     await _loadData();
   }
@@ -158,9 +166,11 @@ class _DashboardPageState extends State<DashboardPage> {
           Card(
             color: const Color(0xFF102019),
             child: ListTile(
+              onTap: _openMatches,
               leading: const CircleAvatar(child: Icon(Icons.sports_cricket, color: Color(0xFF00E676))),
               title: Text(tr('Matches & Live Scoring', 'ম্যাচ ও লাইভ স্কোরিং')),
-              subtitle: Text(tr('Coming in the next development step', 'পরবর্তী ধাপে তৈরি হবে')),
+              subtitle: Text(tr('Start matches and record every ball', 'ম্যাচ শুরু করুন এবং প্রতি বলের স্কোর রাখুন')),
+              trailing: const Icon(Icons.chevron_right),
             ),
           ),
           const SizedBox(height: 12),
