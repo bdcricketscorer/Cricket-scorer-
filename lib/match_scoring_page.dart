@@ -208,7 +208,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
 
   List<Map<String, dynamic>> get innings {
     final raw = match['innings'] as List? ?? [];
-    return raw.map((e) => Map<String, dynamic>.from(e)).toList();
+    return raw.map((e) => e as Map<String, dynamic>).toList();
   }
 
   int get currentIndex => (match['currentInnings'] as num?)?.toInt() ?? 0;
@@ -289,10 +289,6 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
   Future<void> _addBall({int runs = 0, int batterRuns = 0, int extras = 0, bool legal = true, bool wicket = false}) async {
     if (_legalBalls() >= maxBalls || _wickets() >= 10 || match['status'] == 'Completed') return;
     final striker = current['strikerId']?.toString() ?? '';
-    if (striker.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Select the striker first.', 'আগে স্ট্রাইকার নির্বাচন করুন।'))));
-      return;
-    }
     final events = _events();
     final beforeStriker = striker;
     final beforeNon = current['nonStrikerId']?.toString() ?? '';
