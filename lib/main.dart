@@ -22,6 +22,13 @@ class BDCricketScorer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: _appNavigatorKey,
+    builder: (context, child) => Column(
+      children: [
+        Expanded(child: child ?? const SizedBox.shrink()),
+        const _GlobalBottomNavigation(),
+      ],
+    ),
     title: 'BD Cricket Scorer',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
@@ -411,19 +418,52 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       ),
     ),
-    bottomNavigationBar: NavigationBar(
-      height: 68,
-      backgroundColor: const Color(0xFF0B1711),
-      indicatorColor: _green.withValues(alpha: 0.15),
-      selectedIndex: 0,
-      onDestinationSelected: _openIndex,
-      destinations: [
-        NavigationDestination(icon: const Icon(Icons.home_rounded), label: tr('Home', 'হোম')),
-        NavigationDestination(icon: const Icon(Icons.sports_cricket_rounded), label: tr('Matches', 'ম্যাচ')),
-        NavigationDestination(icon: const Icon(Icons.groups_rounded), label: tr('Teams', 'দল')),
-        NavigationDestination(icon: const Icon(Icons.bar_chart_rounded), label: tr('Stats', 'পরিসংখ্যান')),
-        NavigationDestination(icon: const Icon(Icons.person_rounded), label: tr('Profile', 'প্রোফাইল')),
-      ],
-    ),
+  );
+}
+
+
+final GlobalKey<NavigatorState> _appNavigatorKey = GlobalKey<NavigatorState>();
+
+class _GlobalBottomNavigation extends StatefulWidget {
+  const _GlobalBottomNavigation();
+
+  @override
+  State<_GlobalBottomNavigation> createState() => _GlobalBottomNavigationState();
+}
+
+class _GlobalBottomNavigationState extends State<_GlobalBottomNavigation> {
+  int selectedIndex = 0;
+
+  void _navigate(int index) {
+    if (index == selectedIndex) return;
+    setState(() => selectedIndex = index);
+    final target = switch (index) {
+      0 => const DashboardPage(),
+      1 => const MatchCenterPage(isBangla: false),
+      2 => const TeamSquadsPage(isBangla: false),
+      3 => const StatisticsPage(isBangla: false),
+      4 => const PlayerProfilesPage(isBangla: false),
+      _ => const DashboardPage(),
+    };
+    _appNavigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => target),
+      (route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => NavigationBar(
+    height: 64,
+    backgroundColor: const Color(0xFF0B1711),
+    indicatorColor: _green.withValues(alpha: 0.15),
+    selectedIndex: selectedIndex,
+    onDestinationSelected: _navigate,
+    destinations: const [
+      NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
+      NavigationDestination(icon: Icon(Icons.sports_cricket_rounded), label: 'Matches'),
+      NavigationDestination(icon: Icon(Icons.groups_rounded), label: 'Teams'),
+      NavigationDestination(icon: Icon(Icons.bar_chart_rounded), label: 'Stats'),
+      NavigationDestination(icon: Icon(Icons.person_rounded), label: 'Profile'),
+    ],
   );
 }
