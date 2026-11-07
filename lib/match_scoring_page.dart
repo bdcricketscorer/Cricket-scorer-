@@ -788,25 +788,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
               style: const TextStyle(color: Colors.white60, fontSize: 11)),
           ])),
         ]),
-        const SizedBox(height: 10),
-        Container(
-          decoration: BoxDecoration(color: panel, borderRadius: BorderRadius.circular(13)),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          child: Row(children: [
-            _scoreMetric(tr('RUN RATE', 'রান রেট'), runRate.toStringAsFixed(2)),
-            if (target != null) _scoreMetric(tr('TARGET', 'লক্ষ্য'), target.toString()),
-            if (requiredRate != null) _scoreMetric(tr('REQ. RATE', 'প্রয়োজনীয়'), requiredRate.toStringAsFixed(2)),
-            _scoreMetric(tr('PARTNERSHIP', 'জুটি'), '${striker['runs']! + nonStriker['runs']!}'),
-          ]),
-        ),
-        const SizedBox(height: 8),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(tr('R  Runs   B  Balls   SR  Strike rate', 'R রান   B বল   SR স্ট্রাইক রেট'),
-            style: const TextStyle(color: Colors.white54, fontSize: 9)),
-          if (target != null)
-            Text(tr('$remaining runs • $ballsLeft balls left', '$remaining রান • $ballsLeft বল বাকি'),
-              style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 10, fontWeight: FontWeight.w700)),
-        ]),
+        const SizedBox(height: 4),
       ]),
     );
   }
@@ -1010,35 +992,36 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
           child: Column(children: [
-            _compactScoreboard(battingId),
+            _liveScoreboard(battingId, bowlingId),
             if (match['status'] == 'Completed')
-              Padding(padding: const EdgeInsets.only(top: 4), child: Text(tr('Match completed', 'ম্যাচ শেষ হয়েছে'), style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold))),
+              Padding(padding: const EdgeInsets.only(top: 3), child: Text(tr('Match completed', 'ম্যাচ শেষ হয়েছে'), style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold))),
             if (batting.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Row(children: [
                 Expanded(child: _playerSelect(tr('Striker', 'স্ট্রাইকার'), 'strikerId', batting)),
-                const SizedBox(width: 7),
+                const SizedBox(width: 6),
                 Expanded(child: _playerSelect(tr('Non-striker', 'নন-স্ট্রাইকার'), 'nonStrikerId', batting)),
               ]),
             ],
-            if (bowling.isNotEmpty) Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: _playerSelect(tr('Bowler', 'বোলার নির্বাচন'), 'bowlerId', bowling),
-            ),
+            if (bowling.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: _playerSelect(tr('Bowler', 'বোলার নির্বাচন'), 'bowlerId', bowling),
+              ),
             if (batting.isEmpty || bowling.isEmpty)
-              Padding(padding: const EdgeInsets.only(top: 4), child: Text(tr('Add players to both team squads for player-by-player scoring.', 'প্লেয়ারভিত্তিক স্কোরিংয়ের জন্য দুই দলের স্কোয়াডে খেলোয়াড় যোগ করুন।'), style: const TextStyle(fontSize: 11, color: Colors.white70))),
-            const SizedBox(height: 4),
-            Align(alignment: Alignment.centerLeft, child: Text(tr('Runs', 'রান'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-            SizedBox(height: 98, child: GridView.count(
+              Padding(padding: const EdgeInsets.only(top: 3), child: Text(tr('Add players to both team squads for player-by-player scoring.', 'প্লেয়ারভিত্তিক স্কোরিংয়ের জন্য দুই দলের স্কোয়াডে খেলোয়াড় যোগ করুন।'), style: const TextStyle(fontSize: 10, color: Colors.white70))),
+            const SizedBox(height: 3),
+            Align(alignment: Alignment.centerLeft, child: Text(tr('RUNS', 'রান'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+            SizedBox(height: 100, child: GridView.count(
               physics: const NeverScrollableScrollPhysics(),
               padding: EdgeInsets.zero,
-              crossAxisCount: 4, mainAxisSpacing: 5, crossAxisSpacing: 5,
-              childAspectRatio: 2.0,
+              crossAxisCount: 5, mainAxisSpacing: 4, crossAxisSpacing: 4,
+              childAspectRatio: 1.35,
               children: List.generate(7, (n) => _scoreButton(n.toString(), () => _addBall(runs: n, batterRuns: n),
                 color: n == 4 ? Colors.blue.shade800 : (n == 6 ? Colors.purple.shade800 : ((n == 1 || n == 2) ? Colors.teal.shade800 : const Color(0xFF07552D))))),
             )),
             const SizedBox(height: 3),
-            Align(alignment: Alignment.centerLeft, child: Text(tr('Extras & Wicket', 'অতিরিক্ত রান ও উইকেট'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+            Align(alignment: Alignment.centerLeft, child: Text(tr('EXTRAS & WICKET', 'অতিরিক্ত রান ও উইকেট'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
             SizedBox(height: 40, child: Row(children: [
               _compactAction(tr('Wide', 'ওয়াইড'), () => _addBall(runs: 1, extras: 1, legal: false), Colors.orange.shade800),
               _compactAction(tr('No-ball', 'নো-বল'), () => _addBall(runs: 1, extras: 1, legal: false), Colors.deepOrange.shade800),
@@ -1046,15 +1029,16 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
               _compactAction(tr('Leg-bye', 'লেগ-বাই'), () => _addBall(runs: 1, extras: 1), Colors.cyan.shade800),
               _compactAction(tr('Wicket', 'উইকেট'), _recordWicket, Colors.red.shade800),
             ])),
+            const SizedBox(height: 4),
+            _miniStatistics(),
+            const Spacer(),
             if (ended && currentIndex == 0 && match['status'] != 'Completed')
               SizedBox(height: 36, child: FilledButton.icon(onPressed: _startSecondInnings, icon: const Icon(Icons.swap_horiz, size: 17), label: Text(tr('Start 2nd Innings', '২য় ইনিংস শুরু করুন')))),
             if (match['status'] != 'Completed')
               SizedBox(height: 36, child: FilledButton.icon(onPressed: _completeMatch, icon: const Icon(Icons.flag, size: 17), label: Text(tr('Complete Match', 'ম্যাচ সম্পন্ন করুন')), style: FilledButton.styleFrom(backgroundColor: Colors.red.shade800))),
-            const SizedBox(height: 5),
-            _miniStatistics(),
           ]),
         ),
-      ),
+      )
     );
   }
 
