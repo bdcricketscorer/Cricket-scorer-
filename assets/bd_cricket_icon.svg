@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+ <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#123c29"/><stop offset="1" stop-color="#04130d"/></linearGradient>
+ <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#fff0a6"/><stop offset=".42" stop-color="#ffc629"/><stop offset="1" stop-color="#a85b00"/></linearGradient>
+ <linearGradient id="red" x2=".8" y2="1"><stop stop-color="#ff7777"/><stop offset=".4" stop-color="#e60020"/><stop offset="1" stop-color="#750014"/></linearGradient>
+ <linearGradient id="wood" x2="0" y2="1"><stop stop-color="#fff0bd"/><stop offset="1" stop-color="#b36b20"/></linearGradient>
+ <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="18"/></filter>
+ <clipPath id="round"><rect x="28" y="28" width="968" height="968" rx="205"/></clipPath>
+</defs>
+<g clip-path="url(#round)">
+ <rect width="1024" height="1024" fill="url(#bg)"/>
+ <circle cx="512" cy="410" r="330" fill="#00e676" opacity=".10" filter="url(#shadow)"/>
+ <path d="M0 735 Q250 610 512 720 T1024 700 V1024 H0Z" fill="#0b5b31"/>
+ <path d="M0 820 Q250 720 512 820 T1024 790 V1024 H0Z" fill="#063b24"/>
+ <g opacity=".6" stroke="#56df7c" stroke-width="7"><path d="M70 820L300 1024M210 780L440 1024M810 780L580 1024M950 820L720 1024"/></g>
+ <g fill="#d5f9e4" opacity=".8"><circle cx="120" cy="300" r="12"/><circle cx="160" cy="270" r="10"/><circle cx="200" cy="300" r="12"/><circle cx="824" cy="300" r="12"/><circle cx="864" cy="270" r="10"/><circle cx="904" cy="300" r="12"/></g>
+ <g transform="translate(512 365)">
+  <path d="M-250 170L-65 -125Q-48 -150 -24 -132L12 -108Q30 -92 13 -65L-165 230Z" fill="url(#wood)" stroke="#70420f" stroke-width="15"/>
+  <path d="M250 170L65 -125Q48 -150 24 -132L-12 -108Q-30 -92 -13 -65L165 230Z" fill="url(#wood)" stroke="#70420f" stroke-width="15"/>
+  <path d="M-58 -155L-32 -240Q0 -265 32 -240L58 -155Z" fill="#d99b36" stroke="#70420f" stroke-width="12"/>
+  <path d="M-45 -235L-45 -345M0 -245L0 -365M45 -235L45 -345" stroke="url(#gold)" stroke-width="25" stroke-linecap="round"/>
+  <circle r="168" fill="#30060d" opacity=".45" transform="translate(12 20)"/>
+  <circle r="158" fill="url(#red)" stroke="#ffb6b6" stroke-width="12"/>
+  <path d="M-104 -110Q-20 -30 104 110M-134 -72Q-40 20 72 132M-68 -138Q20 -45 138 68" fill="none" stroke="#fff1e5" stroke-width="13" stroke-dasharray="8 15" stroke-linecap="round"/>
+  <path d="M-105 -112Q-18 -25 105 112" fill="none" stroke="#870016" stroke-width="6"/>
+  <ellipse cx="-65" cy="-75" rx="35" ry="22" fill="#fff" opacity=".25" transform="rotate(-35 -65 -75)"/>
+ </g>
+ <path d="M90 620Q512 500 934 620L875 705Q512 615 149 705Z" fill="#00a94f" stroke="#ffd34e" stroke-width="12"/>
+ <text x="512" y="690" text-anchor="middle" font-family="DejaVu Sans,Arial,sans-serif" font-size="170" font-weight="900" fill="url(#gold)" stroke="#3c2200" stroke-width="9" paint-order="stroke">BD</text>
+ <path d="M105 730Q512 680 919 730L890 865Q512 920 134 865Z" fill="#062719" stroke="url(#gold)" stroke-width="13"/>
+ <text x="512" y="823" text-anchor="middle" font-family="DejaVu Sans,Arial,sans-serif" font-size="67" font-weight="800" letter-spacing="2" fill="#fff">CRICKET</text>
+ <text x="512" y="890" text-anchor="middle" font-family="DejaVu Sans,Arial,sans-serif" font-size="52" font-weight="700" letter-spacing="8" fill="#b9f6ca">SCORER</text>
+ <path d="M40 40H984V984H40Z" fill="none" stroke="#00e676" stroke-width="24" rx="200"/>
+</g>
+</svg>
