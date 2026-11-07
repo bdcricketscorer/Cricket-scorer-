@@ -206,23 +206,6 @@ class _DashboardPageState extends State<DashboardPage> {
     await _loadData();
   }
 
-  void _openIndex(int index) {
-    switch (index) {
-      case 1:
-        _open(MatchCenterPage(isBangla: isBangla));
-        break;
-      case 2:
-        _open(TeamSquadsPage(isBangla: isBangla));
-        break;
-      case 3:
-        _open(StatisticsPage(isBangla: isBangla));
-        break;
-      case 4:
-        _open(PlayerProfilesPage(isBangla: isBangla));
-        break;
-    }
-  }
-
   Widget _featureCard({
     required IconData icon,
     required String title,
