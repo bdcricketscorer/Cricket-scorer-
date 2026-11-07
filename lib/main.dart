@@ -100,23 +100,35 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Widget _statPill(IconData icon, String value, String label) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.055),
+  Widget _statPill(
+    IconData icon,
+    String value,
+    String label,
+    VoidCallback onTap,
+  ) => Expanded(
+    child: Material(
+      color: Colors.white.withValues(alpha: 0.055),
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: const Color(0xFFB9F6CA), size: 19),
-          const SizedBox(height: 6),
-          Text(value, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 2),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 10, color: _muted)),
-        ],
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: const Color(0xFFB9F6CA), size: 19),
+              const SizedBox(height: 6),
+              Text(value, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 2),
+              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10, color: _muted)),
+            ],
+          ),
+        ),
       ),
     ),
   );
@@ -285,11 +297,26 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 15),
                   Row(
                     children: [
-                      _statPill(Icons.person_rounded, '$playerCount', tr('Players', 'খেলোয়াড়')),
+                      _statPill(
+                        Icons.person_rounded,
+                        '$playerCount',
+                        tr('Players', 'খেলোয়াড়'),
+                        () => _open(PlayerProfilesPage(isBangla: isBangla)),
+                      ),
                       const SizedBox(width: 9),
-                      _statPill(Icons.groups_rounded, '$teamCount', tr('Teams', 'দল')),
+                      _statPill(
+                        Icons.groups_rounded,
+                        '$teamCount',
+                        tr('Teams', 'দল'),
+                        () => _open(TeamSquadsPage(isBangla: isBangla)),
+                      ),
                       const SizedBox(width: 9),
-                      _statPill(Icons.emoji_events_rounded, '$tournamentCount', tr('Tournaments', 'টুর্নামেন্ট')),
+                      _statPill(
+                        Icons.emoji_events_rounded,
+                        '$tournamentCount',
+                        tr('Tournaments', 'টুর্নামেন্ট'),
+                        () => _open(TournamentPage(isBangla: isBangla)),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 25),
