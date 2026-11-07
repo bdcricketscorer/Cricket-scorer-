@@ -72,8 +72,19 @@ jobs:
           p.write_text(s)
           PY
 
+      - name: Render app icon
+        run: |
+          python3 -m pip install --user cairosvg
+          python3 - <<'PY'
+          import cairosvg
+          cairosvg.svg2png(url="assets/bd_cricket_icon.svg", write_to="assets/bd_cricket_icon.png", output_width=1024, output_height=1024)
+          PY
+
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
 
       - name: Analyze
         run: flutter analyze lib --no-fatal-infos
