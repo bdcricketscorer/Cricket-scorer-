@@ -334,7 +334,6 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
   int _wickets() => _events().where((e) => e['wicket'] == true).length;
 
   String _oversText() {
-    final balls = _legalBalls();
     return (balls ~/ 6).toString() + '.' + (balls % 6).toString();
   }
 
@@ -722,7 +721,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     );
   }
 
-  Widget _liveScoreboard(String battingId, String bowlingId) {
+  Widget _liveScoreboard(String battingId) {
     final strikerId = current['strikerId']?.toString() ?? '';
     final nonStrikerId = current['nonStrikerId']?.toString() ?? '';
     final bowlerId = current['bowlerId']?.toString() ?? '';
@@ -730,17 +729,9 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     final nonStriker = _batterFigures(nonStrikerId);
     final bowler = _bowlerFigures(bowlerId);
     final balls = _legalBalls();
-    final runRate = balls == 0 ? 0.0 : _runs() * 6 / balls;
-    final target = currentIndex == 1 && innings.isNotEmpty
-        ? ((innings[0]['runs'] as num?)?.toInt() ?? 0) + 1 : null;
-    final remaining = target == null ? null : (target - _runs()).clamp(0, target);
-    final ballsLeft = (maxBalls - balls).clamp(0, maxBalls);
-    final requiredRate = target == null || ballsLeft == 0
-        ? null : (remaining! * 6 / ballsLeft);
     final bowlerName = bowlerId.isEmpty ? tr('Select bowler', 'বোলার নির্বাচন করুন') : _playerName(bowlerId);
     final strikerName = strikerId.isEmpty ? tr('Select striker', 'স্ট্রাইকার নির্বাচন করুন') : _playerName(strikerId);
     final nonStrikerName = nonStrikerId.isEmpty ? tr('Select non-striker', 'নন-স্ট্রাইকার নির্বাচন করুন') : _playerName(nonStrikerId);
-    final panel = const Color(0xFF10251D);
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
@@ -793,12 +784,6 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     );
   }
 
-  Widget _scoreMetric(String label, String value) => Expanded(child: Column(children: [
-    Text(label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: .5)),
-    const SizedBox(height: 4),
-    Text(value, style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 14, fontWeight: FontWeight.w900)),
-  ]));
-
   Future<void> _showDetailedStats() async {
     final battingId = current['battingTeamId'].toString();
     final bowlingId = current['bowlingTeamId'].toString();
@@ -817,7 +802,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
             controller: controller,
             padding: const EdgeInsets.all(14),
             children: [
-              _liveScoreboard(battingId, bowlingId),
+              _liveScoreboard(battingId),
               const SizedBox(height: 12),
               Text(tr('Recent Balls', 'সাম্প্রতিক বল'), style: const TextStyle(fontWeight: FontWeight.bold)),
               if (events.isEmpty)
