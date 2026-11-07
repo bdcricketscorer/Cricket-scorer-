@@ -612,7 +612,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     return DropdownButtonFormField<String>(
       initialValue: valid ? value : '',
       isExpanded: true,
-      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), contentPadding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), isDense: true),
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), contentPadding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3), isDense: true),
       items: [
         DropdownMenuItem(value: '', child: Text(tr('Select', 'নির্বাচন করুন'))),
         ...available.map((p) => DropdownMenuItem(value: p['id'].toString(), child: Text(p['name'].toString(), overflow: TextOverflow.ellipsis))),
@@ -689,35 +689,35 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
   Widget _compactScoreboard(String battingId) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         gradient: const LinearGradient(colors: [Color(0xFF123D2A), Color(0xFF071A12)]),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF26734A)),
       ),
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
-            const Icon(Icons.circle, size: 6, color: Color(0xFF00E676)),
-            const SizedBox(width: 4),
+            const Icon(Icons.circle, size: 7, color: Color(0xFF00E676)),
+            const SizedBox(width: 5),
             Text(match['status'] == 'Completed' ? tr('FINAL', 'শেষ') : tr('LIVE', 'লাইভ'),
-              style: const TextStyle(color: Color(0xFF9BE7B5), fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1)),
-            const SizedBox(width: 7),
-            Expanded(child: Text(_teamName(battingId), maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600))),
+              style: const TextStyle(color: Color(0xFF9BE7B5), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
           ]),
-          const SizedBox(height: 1),
+          const SizedBox(height: 3),
+          Text(_teamName(battingId), maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
           FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
             child: Text('${_runs()}/${_wickets()}',
-              style: const TextStyle(color: Colors.white, fontSize: 36, height: 1, fontWeight: FontWeight.w900))),
+              style: const TextStyle(color: Colors.white, fontSize: 42, height: 1, fontWeight: FontWeight.w900))),
         ])),
-        const SizedBox(width: 8),
-        Container(width: 1, height: 48, color: Colors.white24),
         const SizedBox(width: 10),
+        Container(width: 1, height: 66, color: Colors.white24),
+        const SizedBox(width: 12),
         Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-          Text(tr('OVERS', 'ওভার'), style: const TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.bold)),
+          Text(tr('OVERS', 'ওভার'), style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
           Text('${_oversText()} / ${match['overs'] ?? 10}',
-            style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 16, fontWeight: FontWeight.w900)),
+            style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 19, fontWeight: FontWeight.w900)),
+          Text(tr('Run scoring', 'রান যোগ করুন'), style: const TextStyle(color: Colors.white54, fontSize: 10)),
         ]),
       ]),
     );
@@ -950,7 +950,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
               ...innings.asMap().entries.map((entry) => _detailedInningsCard(entry.key, entry.value)),
             ])
           : Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+              padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
               child: Column(children: [
                 _compactScoreboard(battingId),
                 if (match['status'] == 'Completed')
@@ -980,7 +980,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
                 )),
                 const SizedBox(height: 3),
                 Align(alignment: Alignment.centerLeft, child: Text(tr('Extras & Wicket', 'অতিরিক্ত রান ও উইকেট'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                SizedBox(height: 42, child: Row(children: [
+                SizedBox(height: 40, child: Row(children: [
                   _compactAction(tr('Wide', 'ওয়াইড'), () => _addBall(runs: 1, extras: 1, legal: false), Colors.orange.shade800),
                   _compactAction(tr('No-ball', 'নো-বল'), () => _addBall(runs: 1, extras: 1, legal: false), Colors.deepOrange.shade800),
                   _compactAction(tr('Bye', 'বাই'), () => _addBall(runs: 1, extras: 1), Colors.indigo.shade700),
