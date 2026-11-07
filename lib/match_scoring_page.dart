@@ -367,7 +367,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     saving = false;
   }
 
-  Future<void> _addBall({int runs = 0, int batterRuns = 0, int extras = 0, bool legal = true, bool wicket = false, String wicketType = '', String fielderId = '', String dismissedBatterId = ''}) async {
+  Future<void> _addBall({int runs = 0, int batterRuns = 0, int extras = 0, bool legal = true, bool wicket = false, String wicketType = '', String fielderId = '', String dismissedBatterId = '', bool? bowlerCredited}) async {
     if (_legalBalls() >= maxBalls || _wickets() >= 10 || match['status'] == 'Completed') return;
     final striker = current['strikerId']?.toString() ?? '';
     final battingSquad = _squad(current['battingTeamId'].toString());
@@ -381,7 +381,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     events.add({
       'runs': runs, 'batterRuns': batterRuns, 'extras': extras,
       'legal': legal, 'wicket': wicket, 'wicketType': wicketType, 'fielderId': fielderId,
-      'bowlerCredited': wicket && !['Run out', 'Retired hurt', 'Obstructing the field'].contains(wicketType),
+      'bowlerCredited': wicket && (bowlerCredited ?? !['Run out', 'Retired out', 'Obstructing the field', 'Timed out'].contains(wicketType)),
       'dismissedBatterId': wicket ? (dismissedBatterId.isNotEmpty ? dismissedBatterId : striker) : '', 'strikerId': striker,
       'bowlerId': beforeBowler, 'beforeStriker': beforeStriker,
       'beforeNonStriker': beforeNon, 'beforeBowler': beforeBowler,
@@ -432,7 +432,8 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
   }
 
   Future<void> _recordWicket() async {
-    const types = ['Bowled', 'Caught', 'LBW', 'Stumped', 'Hit wicket', 'Run out', 'Retired hurt', 'Obstructing the field'];
+    const types = ['Bowled', 'Caught', 'LBW', 'Stumped', 'Hit wicket', 'Run out', 'Retired out', 'Obstructing the field', 'Timed out'];
+    const selectionRequired = ['Run out', 'Retired out', 'Obstructing the field', 'Timed out'];
     String kind = 'Bowled';
     String dismissed = current['strikerId']?.toString() ?? '';
     final strikerId = current['strikerId']?.toString() ?? '';
@@ -440,18 +441,57 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     final ok = await showDialog<bool>(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, refresh) => AlertDialog(
       title: Text(tr('Wicket details', 'উইকেটের ধরন')),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButtonFormField<String>(value: kind, decoration: InputDecoration(labelText: tr('How out?', 'কীভাবে আউট?')),
-          items: types.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(), onChanged: (v) => refresh(() => kind = v ?? 'Bowled')),
-        const SizedBox(height: 10),
-        if (strikerId.isNotEmpty && nonStrikerId.isNotEmpty) DropdownButtonFormField<String>(value: dismissed,
-          decoration: InputDecoration(labelText: tr('Who is out?', 'কে আউট হয়েছে?')),
-          items: [DropdownMenuItem(value: strikerId, child: Text(_playerName(strikerId))), DropdownMenuItem(value: nonStrikerId, child: Text(_playerName(nonStrikerId)))],
-          onChanged: (v) => refresh(() => dismissed = v ?? strikerId)),
+        DropdownButtonFormField<String>(
+          value: kind,
+          decoration: InputDecoration(labelText: tr('How out?', 'কীভাবে আউট?')),
+          items: types.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+          onChanged: (v) => refresh(() {
+            kind = v ?? 'Bowled';
+            dismissed = strikerId;
+          }),
+        ),
+        if (selectionRequired.contains(kind)) ...[
+          const SizedBox(height: 10),
+          if (strikerId.isNotEmpty && nonStrikerId.isNotEmpty)
+            DropdownButtonFormField<String>(
+              value: dismissed == strikerId || dismissed == nonStrikerId ? dismissed : strikerId,
+              decoration: InputDecoration(labelText: tr('Who is out?', 'কে আউট হয়েছে?')),
+              items: [
+                DropdownMenuItem(value: strikerId, child: Text(_playerName(strikerId))),
+                DropdownMenuItem(value: nonStrikerId, child: Text(_playerName(nonStrikerId))),
+              ],
+              onChanged: (v) => refresh(() => dismissed = v ?? strikerId),
+            )
+          else
+            Text(tr('Select both batters first.', 'আগে দুইজন ব্যাটার নির্বাচন করুন।')),
+        ],
+        if (!selectionRequired.contains(kind))
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(tr('Striker will be given out automatically.', 'স্ট্রাইকার অটোমেটিক আউট হবে।')),
+          ),
       ]),
-      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cancel', 'বাতিল'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Confirm', 'নিশ্চিত করুন')))],
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cancel', 'বাতিল'))),
+        FilledButton(
+          onPressed: () {
+            if (selectionRequired.contains(kind) && (strikerId.isEmpty || nonStrikerId.isEmpty)) return;
+            Navigator.pop(ctx, true);
+          },
+          child: Text(tr('Confirm', 'নিশ্চিত করুন')),
+        ),
+      ],
     )));
     if (ok == true) {
-      await _addBall(legal: true, wicket: true, wicketType: kind, dismissedBatterId: dismissed);
+      final exceptional = selectionRequired.contains(kind);
+      final noDelivery = kind == 'Retired out' || kind == 'Timed out';
+      await _addBall(
+        legal: !noDelivery,
+        wicket: true,
+        wicketType: kind,
+        dismissedBatterId: exceptional ? dismissed : strikerId,
+        bowlerCredited: !exceptional,
+      );
       if (mounted && _wickets() < 10 && match['status'] != 'Completed') await _chooseNewBatter();
     }
   }
