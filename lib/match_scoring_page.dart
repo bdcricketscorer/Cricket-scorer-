@@ -603,17 +603,28 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
 
   Widget _playerSelect(String label, String key, List<Map<String, dynamic>> squad) {
     final value = current[key]?.toString() ?? '';
-    final valid = squad.any((p) => p['id'].toString() == value);
+    final otherKey = key == 'strikerId' ? 'nonStrikerId' : 'strikerId';
+    final otherValue = current[otherKey]?.toString() ?? '';
+    final valid = value.isNotEmpty && value != otherValue &&
+        squad.any((p) => p['id'].toString() == value);
+    final available = squad.where((p) => p['id'].toString() != otherValue).toList();
     return DropdownButtonFormField<String>(
       initialValue: valid ? value : '',
       isExpanded: true,
       decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
       items: [
         DropdownMenuItem(value: '', child: Text(tr('Select', 'নির্বাচন করুন'))),
-        ...squad.map((p) => DropdownMenuItem(value: p['id'].toString(), child: Text(p['name'].toString(), overflow: TextOverflow.ellipsis))),
+        ...available.map((p) => DropdownMenuItem(value: p['id'].toString(), child: Text(p['name'].toString(), overflow: TextOverflow.ellipsis))),
       ],
       onChanged: (v) async {
-        current[key] = v ?? '';
+        final selected = v ?? '';
+        if (selected.isNotEmpty && selected == (current[otherKey]?.toString() ?? '')) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(tr('Striker and non-striker must be different players.', 'স্ট্রাইকার ও নন-স্ট্রাইকার অবশ্যই আলাদা খেলোয়াড় হতে হবে।')),
+          ));
+          return;
+        }
+        current[key] = selected;
         setState(() {});
         await _persist();
       },
