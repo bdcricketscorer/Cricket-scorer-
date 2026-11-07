@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'player_profiles_page.dart';
 import 'team_squads_page.dart';
+import 'tournament_page.dart';
 import 'match_scoring_page.dart';
 import 'statistics_page.dart';
 
@@ -329,16 +330,64 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(height: 22),
                   _liveMatchBanner(),
-                  const SizedBox(height: 15),
                   const SizedBox(height: 25),
                   Row(
                     children: [
                       Text(tr('Quick Access', 'দ্রুত প্রবেশ'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                       const Spacer(),
-                      Text(tr('2 FEATURES', '২টি ফিচার'), style: const TextStyle(color: _muted, fontSize: 9, letterSpacing: 1)),
+                      Text(tr('5 FEATURES', '৫টি ফিচার'), style: const TextStyle(color: _muted, fontSize: 9, letterSpacing: 1)),
                     ],
                   ),
                   const SizedBox(height: 13),
+                  SizedBox(
+                    height: 150,
+                    child: Row(
+                      children: [
+                        Expanded(child: _featureCard(
+                          icon: Icons.person_rounded,
+                          title: tr('Player Profiles', 'প্লেয়ার প্রোফাইল'),
+                          subtitle: tr('Manage player details', 'খেলোয়াড়ের তথ্য পরিচালনা'),
+                          accent: const Color(0xFF69F0AE),
+                          count: '$playerCount',
+                          onTap: () => _open(PlayerProfilesPage(isBangla: isBangla)),
+                        )),
+                        const SizedBox(width: 11),
+                        Expanded(child: _featureCard(
+                          icon: Icons.groups_rounded,
+                          title: tr('Teams & Squads', 'দল ও স্কোয়াড'),
+                          subtitle: tr('Build your team', 'আপনার দল তৈরি করুন'),
+                          accent: const Color(0xFF80CBC4),
+                          count: '$teamCount',
+                          onTap: () => _open(TeamSquadsPage(isBangla: isBangla)),
+                        )),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 11),
+                  SizedBox(
+                    height: 150,
+                    child: Row(
+                      children: [
+                        Expanded(child: _featureCard(
+                          icon: Icons.emoji_events_rounded,
+                          title: tr('Tournaments', 'টুর্নামেন্ট'),
+                          subtitle: tr('Fixtures & standings', 'ফিক্সচার ও পয়েন্ট টেবিল'),
+                          accent: const Color(0xFFFFD54F),
+                          count: '$tournamentCount',
+                          onTap: () => _open(TournamentPage(isBangla: isBangla)),
+                        )),
+                        const SizedBox(width: 11),
+                        Expanded(child: _featureCard(
+                          icon: Icons.sports_cricket_rounded,
+                          title: tr('Live Scoring', 'লাইভ স্কোরিং'),
+                          subtitle: tr('Score every ball', 'প্রতি বলের স্কোর রাখুন'),
+                          accent: const Color(0xFFFF8A65),
+                          onTap: () => _open(MatchCenterPage(isBangla: isBangla)),
+                        )),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 11),
                   SizedBox(
                     height: 132,
                     child: _featureCard(
