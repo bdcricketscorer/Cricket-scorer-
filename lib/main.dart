@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'player_profiles_page.dart';
 import 'team_squads_page.dart';
-import 'tournament_page.dart';
 import 'match_scoring_page.dart';
 import 'statistics_page.dart';
 
@@ -215,39 +214,6 @@ class _DashboardPageState extends State<DashboardPage> {
         break;
     }
   }
-
-  Widget _statPill(
-    IconData icon,
-    String value,
-    String label,
-    VoidCallback onTap,
-  ) => Expanded(
-    child: Material(
-      color: Colors.white.withValues(alpha: 0.055),
-      borderRadius: BorderRadius.circular(15),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(15),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: const Color(0xFFB9F6CA), size: 19),
-              const SizedBox(height: 6),
-              Text(value, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 2),
-              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10, color: _muted)),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 
   Widget _featureCard({
     required IconData icon,
