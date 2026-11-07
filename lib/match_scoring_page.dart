@@ -334,6 +334,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
   int _wickets() => _events().where((e) => e['wicket'] == true).length;
 
   String _oversText() {
+    final balls = _legalBalls();
     return (balls ~/ 6).toString() + '.' + (balls % 6).toString();
   }
 
@@ -684,43 +685,6 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     );
   }
 
-  Widget _compactScoreboard(String battingId) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF123D2A), Color(0xFF071A12)]),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF26734A)),
-      ),
-      child: Row(children: [
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            const Icon(Icons.circle, size: 7, color: Color(0xFF00E676)),
-            const SizedBox(width: 5),
-            Text(match['status'] == 'Completed' ? tr('FINAL', 'শেষ') : tr('LIVE', 'লাইভ'),
-              style: const TextStyle(color: Color(0xFF9BE7B5), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
-          ]),
-          const SizedBox(height: 3),
-          Text(_teamName(battingId), maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
-          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
-            child: Text('${_runs()}/${_wickets()}',
-              style: const TextStyle(color: Colors.white, fontSize: 42, height: 1, fontWeight: FontWeight.w900))),
-        ])),
-        const SizedBox(width: 10),
-        Container(width: 1, height: 66, color: Colors.white24),
-        const SizedBox(width: 12),
-        Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-          Text(tr('OVERS', 'ওভার'), style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
-          Text('${_oversText()} / ${match['overs'] ?? 10}',
-            style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 19, fontWeight: FontWeight.w900)),
-          Text(tr('Run scoring', 'রান যোগ করুন'), style: const TextStyle(color: Colors.white54, fontSize: 10)),
-        ]),
-      ]),
-    );
-  }
-
   Widget _liveScoreboard(String battingId) {
     final strikerId = current['strikerId']?.toString() ?? '';
     final nonStrikerId = current['nonStrikerId']?.toString() ?? '';
@@ -728,7 +692,6 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     final striker = _batterFigures(strikerId);
     final nonStriker = _batterFigures(nonStrikerId);
     final bowler = _bowlerFigures(bowlerId);
-    final balls = _legalBalls();
     final bowlerName = bowlerId.isEmpty ? tr('Select bowler', 'বোলার নির্বাচন করুন') : _playerName(bowlerId);
     final strikerName = strikerId.isEmpty ? tr('Select striker', 'স্ট্রাইকার নির্বাচন করুন') : _playerName(strikerId);
     final nonStrikerName = nonStrikerId.isEmpty ? tr('Select non-striker', 'নন-স্ট্রাইকার নির্বাচন করুন') : _playerName(nonStrikerId);
@@ -786,7 +749,6 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
 
   Future<void> _showDetailedStats() async {
     final battingId = current['battingTeamId'].toString();
-    final bowlingId = current['bowlingTeamId'].toString();
     final events = _events();
     await showModalBottomSheet<void>(
       context: context,
@@ -977,7 +939,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
           child: Column(children: [
-            _liveScoreboard(battingId, bowlingId),
+            _liveScoreboard(battingId),
             if (match['status'] == 'Completed')
               Padding(padding: const EdgeInsets.only(top: 3), child: Text(tr('Match completed', 'ম্যাচ শেষ হয়েছে'), style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold))),
             if (batting.isNotEmpty) ...[
