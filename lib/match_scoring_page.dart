@@ -769,6 +769,94 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     Text(value, style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 14, fontWeight: FontWeight.w900)),
   ]));
 
+  Widget _detailedInningsCard(int inningsNumber, Map<String, dynamic> inn) {
+    final events = (inn['events'] as List? ?? []).map((e) => Map<String, dynamic>.from(e)).toList();
+    final batting = <String, Map<String, int>>{};
+    final bowling = <String, Map<String, int>>{};
+    var extras = 0, total = 0, wickets = 0, legalBalls = 0;
+    final fall = <String>[];
+    for (final e in events) {
+      final batter = (e['strikerId'] ?? '').toString();
+      final bowler = (e['bowlerId'] ?? '').toString();
+      final batterRuns = (e['batterRuns'] as num?)?.toInt() ?? 0;
+      final runs = (e['runs'] as num?)?.toInt() ?? 0;
+      final extraRuns = (e['extras'] as num?)?.toInt() ?? 0;
+      final legal = e['legal'] == true;
+      total += runs;
+      extras += extraRuns;
+      if (legal) legalBalls++;
+      if (batter.isNotEmpty) {
+        final s = batting.putIfAbsent(batter, () => {'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0});
+        s['runs'] = s['runs']! + batterRuns;
+        if (legal) s['balls'] = s['balls']! + 1;
+        if (batterRuns == 4) s['fours'] = s['fours']! + 1;
+        if (batterRuns == 6) s['sixes'] = s['sixes']! + 1;
+      }
+      if (bowler.isNotEmpty) {
+        final s = bowling.putIfAbsent(bowler, () => {'runs': 0, 'balls': 0, 'wickets': 0});
+        final conceded = runs - (legal ? extraRuns : 0);
+        s['runs'] = s['runs']! + (conceded < 0 ? 0 : conceded);
+        if (legal) s['balls'] = s['balls']! + 1;
+        if (e['wicket'] == true && e['bowlerCredited'] == true) s['wickets'] = s['wickets']! + 1;
+      }
+      if (e['wicket'] == true) {
+        wickets++;
+        final dismissed = (e['dismissedBatterId'] ?? batter).toString();
+        final over = '${legalBalls ~/ 6}.${legalBalls % 6}';
+        final outName = _playerName(dismissed).isEmpty ? 'Batter' : _playerName(dismissed);
+        fall.add('\$wickets-\$total (\$outName, \$over ov)');
+      }
+    }
+    final overs = '${legalBalls ~/ 6}.${legalBalls % 6}';
+    Widget heading(String value) => Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 5),
+      child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF9BE7B5))),
+    );
+    Widget row(List<String> values, {bool header = false}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(children: [
+        Expanded(flex: 4, child: Text(values[0], style: TextStyle(fontSize: 12, fontWeight: header ? FontWeight.bold : FontWeight.normal))),
+        ...values.skip(1).map((v) => Expanded(child: Text(v, textAlign: TextAlign.end, style: TextStyle(fontSize: 11, fontWeight: header ? FontWeight.bold : FontWeight.normal)))),
+      ]),
+    );
+    return Card(
+      color: const Color(0xFF102019),
+      child: ExpansionTile(
+        initiallyExpanded: match['status'] == 'Completed',
+        title: Text('${tr('Innings', 'ইনিংস')} ${inningsNumber + 1}: ${_teamName((inn['battingTeamId'] ?? '').toString())}', style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text('\$total/\$wickets  (\$overs ov)'),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        children: [
+          heading(tr('Batting', 'ব্যাটিং')),
+          row([tr('Batter', 'ব্যাটার'), 'R', 'B', '4s', '6s', 'SR'], header: true),
+          ...batting.entries.map((entry) {
+            final s = entry.value;
+            final balls = s['balls']!;
+            final sr = balls == 0 ? '0.0' : (s['runs']! * 100 / balls).toStringAsFixed(1);
+            final name = _playerName(entry.key);
+            return row([name.isEmpty ? tr('Unknown', 'অজানা') : name, '${s['runs']}', '\$balls', '${s['fours']}', '${s['sixes']}', sr]);
+          }),
+          row([tr('Extras', 'অতিরিক্ত'), '\$extras', '', '', '', '']),
+          row([tr('Total', 'মোট'), '\$total/\$wickets', overs, '', '', '']),
+          heading(tr('Bowling', 'বোলিং')),
+          row([tr('Bowler', 'বোলার'), 'O', 'R', 'W', 'Econ'], header: true),
+          ...bowling.entries.map((entry) {
+            final s = entry.value;
+            final balls = s['balls']!;
+            final econ = balls == 0 ? '0.00' : (s['runs']! * 6 / balls).toStringAsFixed(2);
+            final name = _playerName(entry.key);
+            return row([name.isEmpty ? tr('Unknown', 'অজানা') : name, '${balls ~/ 6}.${balls % 6}', '${s['runs']}', '${s['wickets']}', econ]);
+          }),
+          if (fall.isNotEmpty) ...[
+            heading(tr('Fall of wickets', 'উইকেট পতন')),
+            Align(alignment: Alignment.centerLeft, child: Text(fall.join('  •  '), style: const TextStyle(fontSize: 12))),
+          ],
+          if (events.isEmpty) Padding(padding: const EdgeInsets.all(10), child: Text(tr('No ball records available.', 'কোনো বলের রেকর্ড নেই।'))),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _ensureInnings();
@@ -846,15 +934,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
         }),
         const SizedBox(height: 18),
         Text(tr('Scorecard summary', 'স্কোরকার্ড সারাংশ'), style: const TextStyle(fontWeight: FontWeight.bold)),
-        ...innings.asMap().entries.map((entry) {
-          final inn = entry.value;
-          return ListTile(
-            dense: true,
-            title: Text(_teamName(inn['battingTeamId'].toString())),
-            trailing: Text(inn['runs'].toString() + '/' + inn['wickets'].toString() + '  (' +
-              ((inn['balls'] as num? ?? 0) ~/ 6).toString() + '.' + ((inn['balls'] as num? ?? 0) % 6).toString() + ')'),
-          );
-        }),
+        ...innings.asMap().entries.map((entry) => _detailedInningsCard(entry.key, entry.value)),
       ]),
     );
   }
