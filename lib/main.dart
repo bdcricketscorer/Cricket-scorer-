@@ -50,6 +50,9 @@ class _DashboardPageState extends State<DashboardPage> {
   int playerCount = 0;
   int teamCount = 0;
   int tournamentCount = 0;
+  Map<String, dynamic>? liveMatch;
+  bool liveMatchIsFriendly = true;
+  List<Map<String, dynamic>> dashboardTeams = [];
 
   String tr(String en, String bn) => isBangla ? bn : en;
 
@@ -70,12 +73,125 @@ class _DashboardPageState extends State<DashboardPage> {
     } else {
       players = (prefs.getStringList('players') ?? []).length;
     }
+    List<Map<String, dynamic>> readMatches(String key) {
+      try {
+        return (jsonDecode(prefs.getString(key) ?? '[]') as List)
+            .map((e) => Map<String, dynamic>.from(e)).toList();
+      } catch (_) { return []; }
+    }
+    List<Map<String, dynamic>> readTeams() {
+      try {
+        return (jsonDecode(prefs.getString('team_profiles_v1') ?? '[]') as List)
+            .map((e) => Map<String, dynamic>.from(e)).toList();
+      } catch (_) { return []; }
+    }
+    final liveFriendly = readMatches('friendly_matches_v1')
+        .where((m) => m['status'] == 'Live').toList();
+    final liveTournament = readMatches('tournament_fixtures_v1')
+        .where((m) => m['status'] == 'Live').toList();
+    final foundLive = liveFriendly.isNotEmpty ? liveFriendly.first
+        : (liveTournament.isNotEmpty ? liveTournament.first : null);
     if (!mounted) return;
     setState(() {
       playerCount = players;
       teamCount = (prefs.getStringList('teams') ?? []).length;
       tournamentCount = (prefs.getStringList('tournaments') ?? []).length;
+      liveMatch = foundLive;
+      liveMatchIsFriendly = liveFriendly.isNotEmpty;
+      dashboardTeams = readTeams();
     });
+  }
+
+  Future<void> _openLiveMatch() async {
+    final source = liveMatch;
+    if (source == null) {
+      await _open(MatchCenterPage(isBangla: isBangla));
+      return;
+    }
+    final copy = Map<String, dynamic>.from(source);
+    await Navigator.push(context, MaterialPageRoute(builder: (_) =>
+      LiveScoringPage(match: copy, isBangla: isBangla, teams: dashboardTeams)));
+    final prefs = await SharedPreferences.getInstance();
+    final key = liveMatchIsFriendly ? 'friendly_matches_v1' : 'tournament_fixtures_v1';
+    try {
+      final all = (jsonDecode(prefs.getString(key) ?? '[]') as List)
+          .map((e) => Map<String, dynamic>.from(e)).toList();
+      final index = all.indexWhere((m) => m['id'] == copy['id']);
+      if (index >= 0) all[index] = copy;
+      await prefs.setString(key, jsonEncode(all));
+    } catch (_) {}
+    await _loadData();
+  }
+
+  Widget _liveMatchBanner() {
+    final match = liveMatch;
+    final innings = match == null ? <dynamic>[] : (match['innings'] as List? ?? []);
+    final currentIndex = match == null ? 0 : ((match['currentInnings'] as num?)?.toInt() ?? 0);
+    final current = innings.isNotEmpty && currentIndex < innings.length
+        ? Map<String, dynamic>.from(innings[currentIndex]) : <String, dynamic>{};
+    final runs = (current['runs'] as num?)?.toInt() ?? 0;
+    final wickets = (current['wickets'] as num?)?.toInt() ?? 0;
+    final balls = (current['balls'] as num?)?.toInt() ?? 0;
+    final battingTeamId = current['battingTeamId']?.toString() ?? '';
+    final battingTeam = dashboardTeams.where((t) => t['id'].toString() == battingTeamId);
+    final battingName = battingTeam.isNotEmpty ? battingTeam.first['name'].toString()
+        : (match?['teamA']?.toString() ?? tr('Batting team', 'ব্যাটিং দল'));
+    final teamA = match?['teamA']?.toString() ?? tr('Team A', 'দল A');
+    final teamB = match?['teamB']?.toString() ?? tr('Team B', 'দল B');
+    final scoreText = match == null
+        ? tr('No match is live right now', 'এই মুহূর্তে কোনো ম্যাচ লাইভ নেই')
+        : '$runs/$wickets  (${balls ~/ 6}.${balls % 6} ov)';
+    return Material(
+      color: const Color(0xFF103B27),
+      borderRadius: BorderRadius.circular(21),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(21),
+        onTap: _openLiveMatch,
+        child: Container(
+          height: 124,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(21),
+            border: Border.all(color: _green.withValues(alpha: 0.25)),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF08733B), Color(0xFF102019)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Icon(Icons.sensors, color: Color(0xFFFF5252), size: 16),
+                const SizedBox(width: 6),
+                Text(match == null ? tr('MATCH CENTRE', 'ম্যাচ সেন্টার') : tr('LIVE MATCH', 'লাইভ ম্যাচ'),
+                  style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+                const Spacer(),
+                const Icon(Icons.open_in_new_rounded, color: Colors.white70, size: 16),
+              ]),
+              const Spacer(),
+              if (match == null)
+                Text(scoreText, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800))
+              else ...[
+                Text('$teamA  vs  $teamB', maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 3),
+                Row(children: [
+                  Text(scoreText, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(tr('$battingName batting', '$battingName ব্যাটিংয়ে'),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, color: Color(0xFFD0E7D8)))),
+                ]),
+              ],
+              const Spacer(),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _open(Widget page) async {
@@ -246,54 +362,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ],
                   ),
                   const SizedBox(height: 22),
-                  Container(
-                    height: 190,
-                    padding: const EdgeInsets.all(21),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(25),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF08733B), Color(0xFF103B27), Color(0xFF102019)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(color: _green.withValues(alpha: 0.22)),
-                      boxShadow: [
-                        BoxShadow(color: _green.withValues(alpha: 0.08), blurRadius: 25, offset: const Offset(0, 9)),
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        Positioned(right: -12, top: -24,
-                          child: Icon(Icons.sports_cricket, size: 155, color: Colors.white.withValues(alpha: 0.065))),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(30)),
-                              child: Text(tr('CRICKET CONTROL CENTRE', 'ক্রিকেট পরিচালনা কেন্দ্র'),
-                                style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 9, letterSpacing: 1.15, fontWeight: FontWeight.bold)),
-                            ),
-                            const SizedBox(height: 13),
-                            Text(tr('Manage your game.', 'আপনার খেলা পরিচালনা করুন।'),
-                              style: const TextStyle(fontSize: 25, height: 1.1, fontWeight: FontWeight.w900)),
-                            const SizedBox(height: 7),
-                            Text(tr('Everything you need, in one place.', 'ক্রিকেট পরিচালনার সবকিছু এক জায়গায়।'),
-                              style: const TextStyle(color: Color(0xFFD0E7D8), fontSize: 12)),
-                            const Spacer(),
-                            Row(
-                              children: [
-                                const Icon(Icons.circle, size: 7, color: Color(0xFF69F0AE)),
-                                const SizedBox(width: 6),
-                                Text(tr('READY TO PLAY', 'খেলা পরিচালনায় প্রস্তুত'),
-                                  style: const TextStyle(color: Color(0xFFB9F6CA), fontSize: 9, letterSpacing: 1.1, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  _liveMatchBanner(),
                   const SizedBox(height: 15),
                   Row(
                     children: [
