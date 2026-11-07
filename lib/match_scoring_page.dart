@@ -804,7 +804,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
         final dismissed = (e['dismissedBatterId'] ?? batter).toString();
         final over = '${legalBalls ~/ 6}.${legalBalls % 6}';
         final outName = _playerName(dismissed).isEmpty ? 'Batter' : _playerName(dismissed);
-        fall.add('\$wickets-\$total (\$outName, \$over ov)');
+        fall.add('$wickets-$total ($outName, $over ov)');
       }
     }
     final overs = '${legalBalls ~/ 6}.${legalBalls % 6}';
@@ -824,7 +824,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
       child: ExpansionTile(
         initiallyExpanded: match['status'] == 'Completed',
         title: Text('${tr('Innings', 'ইনিংস')} ${inningsNumber + 1}: ${_teamName((inn['battingTeamId'] ?? '').toString())}', style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('\$total/\$wickets  (\$overs ov)'),
+        subtitle: Text('$total/$wickets  ($overs ov)'),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         children: [
           heading(tr('Batting', 'ব্যাটিং')),
@@ -834,10 +834,10 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
             final balls = s['balls']!;
             final sr = balls == 0 ? '0.0' : (s['runs']! * 100 / balls).toStringAsFixed(1);
             final name = _playerName(entry.key);
-            return row([name.isEmpty ? tr('Unknown', 'অজানা') : name, '${s['runs']}', '\$balls', '${s['fours']}', '${s['sixes']}', sr]);
+            return row([name.isEmpty ? tr('Unknown', 'অজানা') : name, '${s['runs']}', '$balls', '${s['fours']}', '${s['sixes']}', sr]);
           }),
-          row([tr('Extras', 'অতিরিক্ত'), '\$extras', '', '', '', '']),
-          row([tr('Total', 'মোট'), '\$total/\$wickets', overs, '', '', '']),
+          row([tr('Extras', 'অতিরিক্ত'), '$extras', '', '', '', '']),
+          row([tr('Total', 'মোট'), '$total/$wickets', overs, '', '', '']),
           heading(tr('Bowling', 'বোলিং')),
           row([tr('Bowler', 'বোলার'), 'O', 'R', 'W', 'Econ'], header: true),
           ...bowling.entries.map((entry) {
