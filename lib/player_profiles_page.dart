@@ -60,7 +60,21 @@ class _PlayerProfilesPageState extends State<PlayerProfilesPage> {
         content: SizedBox(width: 420, child: Form(key: key, child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _input(fields['name']!, tr('Player name *', 'প্লেয়ারের নাম *'), required: true),
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: TextFormField(
+                controller: fields['name'],
+                decoration: InputDecoration(labelText: tr('Player name *', 'প্লেয়ারের নাম *'), border: const OutlineInputBorder()),
+                validator: (v) {
+                  final name = (v ?? '').trim().toLowerCase();
+                  if (name.isEmpty) return tr('Required', 'এই ঘরটি পূরণ করুন');
+                  final exists = players.any((p) =>
+                    p['id'].toString() != (old?['id'] ?? '').toString() &&
+                    (p['name'] ?? '').toString().trim().toLowerCase() == name);
+                  return exists ? tr('This player name is already registered.', 'এই নামে খেলোয়াড় আগে থেকেই নিবন্ধিত আছে।') : null;
+                },
+              ),
+            ),
             _input(fields['jersey']!, tr('Jersey number', 'জার্সি নম্বর'), number: true),
             DropdownButtonFormField<String>(
               initialValue: role,
