@@ -805,6 +805,25 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
             padding: const EdgeInsets.all(14),
             children: [
               _liveScoreboard(battingId),
+              if (match['status'] == 'Completed' &&
+                  (match['manOfTheMatchId']?.toString().isNotEmpty ?? false))
+                Card(
+                  color: const Color(0xFF123B25),
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0xFF00E676),
+                      child: Icon(Icons.emoji_events, color: Color(0xFF07110D)),
+                    ),
+                    title: Text(tr('Man of the Match', 'ম্যান অব দ্য ম্যাচ'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFB9F6CA))),
+                    subtitle: Text(
+                      (match['manOfTheMatch']?.toString().isNotEmpty ?? false)
+                        ? match['manOfTheMatch'].toString()
+                        : _playerName(match['manOfTheMatchId'].toString()),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 12),
               Text(tr('Recent Balls', 'সাম্প্রতিক বল'), style: const TextStyle(fontWeight: FontWeight.bold)),
               if (events.isEmpty)
@@ -982,19 +1001,21 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
             _liveScoreboard(battingId),
             if (match['status'] == 'Completed')
               Padding(padding: const EdgeInsets.only(top: 3), child: Text(tr('Match completed', 'ম্যাচ শেষ হয়েছে'), style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold))),
-            if (batting.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Row(children: [
-                Expanded(child: _playerSelect(tr('Striker', 'স্ট্রাইকার'), 'strikerId', batting)),
-                const SizedBox(width: 6),
-                Expanded(child: _playerSelect(tr('Non-striker', 'নন-স্ট্রাইকার'), 'nonStrikerId', batting)),
-              ]),
+            if (match['status'] != 'Completed') ...[
+              if (batting.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Row(children: [
+                  Expanded(child: _playerSelect(tr('Striker', 'স্ট্রাইকার'), 'strikerId', batting)),
+                  const SizedBox(width: 6),
+                  Expanded(child: _playerSelect(tr('Non-striker', 'নন-স্ট্রাইকার'), 'nonStrikerId', batting)),
+                ]),
+              ],
+              if (bowling.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: _playerSelect(tr('Bowler', 'বোলার নির্বাচন'), 'bowlerId', bowling),
+                ),
             ],
-            if (bowling.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: _playerSelect(tr('Bowler', 'বোলার নির্বাচন'), 'bowlerId', bowling),
-              ),
             if (batting.isEmpty || bowling.isEmpty)
               Padding(padding: const EdgeInsets.only(top: 3), child: Text(tr('Add players to both team squads for player-by-player scoring.', 'প্লেয়ারভিত্তিক স্কোরিংয়ের জন্য দুই দলের স্কোয়াডে খেলোয়াড় যোগ করুন।'), style: const TextStyle(fontSize: 10, color: Colors.white70))),
             const SizedBox(height: 3),
