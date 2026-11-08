@@ -30,6 +30,19 @@ jobs:
       - name: Generate Android platform
         run: flutter create --platforms=android --org com.bdcricketscorer .
 
+      - name: Set Android app display name
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          s, count = re.subn(r'android:label="[^"]*"', 'android:label="Cric Scorer"', s, count=1)
+          if count != 1:
+              raise SystemExit("Could not find Android app label in AndroidManifest.xml")
+          p.write_text(s)
+          PY
+
       - name: Configure permanent Android signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
