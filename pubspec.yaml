@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   shared_preferences: ^2.3.2
   share_plus: ^10.1.4
+  pdf: ^3.11.3
+  printing: ^5.14.3
 
 dev_dependencies:
   flutter_test:
