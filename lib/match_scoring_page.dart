@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class MatchCenterPage extends StatefulWidget {
   const MatchCenterPage({super.key, required this.isBangla, this.tournamentId});
@@ -120,18 +123,17 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
   }
 
   Future<void> _deleteMatch(Map<String, dynamic> source) async {
-    if (source['status'] == 'Completed') return;
+    // Tournament fixtures are protected. Only Friendly matches can be deleted.
+    if ((source['tournamentId']?.toString() ?? '').isNotEmpty) return;
     final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-      title: Text(tr('Delete match?', 'ম্যাচটি মুছে ফেলবেন?')),
-      content: Text(tr('This match and its score records will be permanently deleted.', 'ম্যাচটি ও এর সব স্কোর রেকর্ড স্থায়ীভাবে মুছে যাবে।')),
-      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cancel', 'বাতিল'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Delete', 'মুছুন')))],
+      title: Text(tr('Delete friendly match?', 'প্রীতি ম্যাচটি মুছে ফেলবেন?')),
+      content: Text(tr('This friendly match and all its score records will be permanently deleted. Tournament matches cannot be deleted.', 'এই প্রীতি ম্যাচ ও এর সব স্কোর রেকর্ড স্থায়ীভাবে মুছে যাবে। টুর্নামেন্টের ম্যাচ ডিলিট করা যাবে না।')),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Cancel', 'বাতিল'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: Colors.red), child: Text(tr('Delete', 'মুছুন')))],
     ));
     if (yes != true) return;
-    final isFriendly = (source['tournamentId']?.toString() ?? '').isEmpty;
-    final list = isFriendly ? friendly : fixtures;
-    list.removeWhere((m) => m['id'] == source['id']);
+    friendly.removeWhere((m) => m['id'] == source['id']);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(isFriendly ? 'friendly_matches_v1' : 'tournament_fixtures_v1', jsonEncode(list));
+    await prefs.setString('friendly_matches_v1', jsonEncode(friendly));
     if (mounted) setState(() {});
   }
 
@@ -179,7 +181,7 @@ class _MatchCenterPageState extends State<MatchCenterPage> {
           onSelected: (v) { if (v == 'restart') _restartMatch(match); if (v == 'delete') _deleteMatch(match); },
           itemBuilder: (_) => [
             if (status != 'Completed' && status != 'Scheduled') PopupMenuItem(value: 'restart', child: ListTile(dense: true, leading: const Icon(Icons.restart_alt), title: Text(tr('Restart match', 'ম্যাচ রিস্টার্ট')))),
-            if (status != 'Completed') PopupMenuItem(value: 'delete', child: ListTile(dense: true, leading: const Icon(Icons.delete_outline, color: Colors.red), title: Text(tr('Delete match', 'ম্যাচ ডিলিট')))),
+            if (isFriendly) PopupMenuItem(value: 'delete', child: ListTile(dense: true, leading: const Icon(Icons.delete_outline, color: Colors.red), title: Text(tr('Delete friendly match', 'প্রীতি ম্যাচ ডিলিট')))),
           ],
         ),
         onTap: () => _openMatch(match, isFriendly: isFriendly),
@@ -787,6 +789,117 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
     );
   }
 
+  Future<void> _exportPdf() async {
+    try {
+      final doc = pw.Document();
+      final matchName = '${match['teamA'] ?? _teamName(match['teamAId'].toString())} vs ${match['teamB'] ?? _teamName(match['teamBId'].toString())}';
+      final inningsWidgets = <pw.Widget>[];
+      for (var index = 0; index < innings.length; index++) {
+        final inn = innings[index];
+        final events = (inn['events'] as List? ?? []).map((e) => Map<String, dynamic>.from(e)).toList();
+        final batting = <String, Map<String, int>>{};
+        final bowling = <String, Map<String, int>>{};
+        var total = 0, extras = 0, wickets = 0, legalBalls = 0;
+        final falls = <String>[];
+        for (final e in events) {
+          final batter = (e['strikerId'] ?? '').toString();
+          final bowler = (e['bowlerId'] ?? '').toString();
+          final batterRuns = (e['batterRuns'] as num?)?.toInt() ?? 0;
+          final runs = (e['runs'] as num?)?.toInt() ?? 0;
+          final extraRuns = (e['extras'] as num?)?.toInt() ?? 0;
+          final legal = e['legal'] == true;
+          total += runs;
+          extras += extraRuns;
+          if (legal) legalBalls++;
+          if (batter.isNotEmpty) {
+            final row = batting.putIfAbsent(batter, () => {'runs': 0, 'balls': 0, 'fours': 0, 'sixes': 0});
+            row['runs'] = row['runs']! + batterRuns;
+            if (legal) row['balls'] = row['balls']! + 1;
+            if (batterRuns == 4) row['fours'] = row['fours']! + 1;
+            if (batterRuns == 6) row['sixes'] = row['sixes']! + 1;
+          }
+          if (bowler.isNotEmpty) {
+            final row = bowling.putIfAbsent(bowler, () => {'runs': 0, 'balls': 0, 'wickets': 0});
+            final conceded = runs - (legal ? extraRuns : 0);
+            row['runs'] = row['runs']! + (conceded < 0 ? 0 : conceded);
+            if (legal) row['balls'] = row['balls']! + 1;
+            if (e['wicket'] == true && e['bowlerCredited'] == true) row['wickets'] = row['wickets']! + 1;
+          }
+          if (e['wicket'] == true) {
+            wickets++;
+            final dismissed = (e['dismissedBatterId'] ?? batter).toString();
+            final over = '${legalBalls ~/ 6}.${legalBalls % 6}';
+            final name = _playerName(dismissed);
+            falls.add('$wickets-$total (${name.isEmpty ? 'Batter' : name}, $over ov)');
+          }
+        }
+        final overText = '${legalBalls ~/ 6}.${legalBalls % 6}';
+        inningsWidgets.addAll([
+          pw.SizedBox(height: 12),
+          pw.Text('INNINGS ${index + 1}: ${_teamName((inn['battingTeamId'] ?? '').toString())}  —  $total/$wickets ($overText overs)',
+            style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 5),
+          pw.Text('BATTING', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          pw.TableHelper.fromTextArray(
+            headers: ['Batter', 'R', 'B', '4s', '6s', 'SR'],
+            data: batting.entries.map((entry) {
+              final v = entry.value; final balls = v['balls']!;
+              final sr = balls == 0 ? '0.0' : (v['runs']! * 100 / balls).toStringAsFixed(1);
+              final name = _playerName(entry.key);
+              return [name.isEmpty ? 'Unknown' : name, '${v['runs']}', '$balls', '${v['fours']}', '${v['sixes']}', sr];
+            }).toList(),
+          ),
+          pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 4), child: pw.Text('Extras: $extras    Total: $total/$wickets')),
+          pw.SizedBox(height: 5),
+          pw.Text('BOWLING', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          pw.TableHelper.fromTextArray(
+            headers: ['Bowler', 'O', 'R', 'W', 'Econ'],
+            data: bowling.entries.map((entry) {
+              final v = entry.value; final balls = v['balls']!;
+              final econ = balls == 0 ? '0.00' : (v['runs']! * 6 / balls).toStringAsFixed(2);
+              final name = _playerName(entry.key);
+              return [name.isEmpty ? 'Unknown' : name, '${balls ~/ 6}.${balls % 6}', '${v['runs']}', '${v['wickets']}', econ];
+            }).toList(),
+          ),
+          if (falls.isNotEmpty) pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 5),
+            child: pw.Text('Fall of wickets: ${falls.join('  |  ')}', style: const pw.TextStyle(fontSize: 9)),
+          ),
+        ]);
+      }
+      final man = (match['manOfTheMatch']?.toString().trim().isNotEmpty ?? false)
+          ? match['manOfTheMatch'].toString()
+          : _playerName(match['manOfTheMatchId']?.toString() ?? '');
+      doc.addPage(pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (context) => [
+          pw.Text('CRIC SCORER', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 4),
+          pw.Text(matchName, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+          pw.Text('${match['tournament'] ?? 'Friendly'}  •  ${match['overs'] ?? 10} overs  •  ${match['status'] ?? 'Scheduled'}'),
+          if ((match['umpire']?.toString().trim().isNotEmpty ?? false)) pw.Text('Umpire: ${match['umpire']}'),
+          if ((match['tossWinnerId']?.toString().isNotEmpty ?? false))
+            pw.Text('Toss: ${_teamName(match['tossWinnerId'].toString())} won, elected to ${match['tossDecision'] ?? 'bat'}'),
+          if (match['result']?.toString().isNotEmpty ?? false)
+            pw.Padding(padding: const pw.EdgeInsets.only(top: 5), child: pw.Text('RESULT: ${match['result']}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+          pw.Divider(),
+          ...inningsWidgets,
+          if (man.isNotEmpty) pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 14),
+            child: pw.Text('MAN OF THE MATCH: $man', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
+          ),
+          pw.Padding(padding: const pw.EdgeInsets.only(top: 18), child: pw.Text('Generated by Cric Scorer', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700))),
+        ],
+      ));
+      await Printing.layoutPdf(onLayout: (format) async => doc.save());
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('Could not create PDF: ', 'PDF তৈরি করা যায়নি: ') + e.toString())),
+      );
+    }
+  }
+
   Future<void> _showDetailedStats() async {
     final battingId = current['battingTeamId'].toString();
     final events = _events();
@@ -990,6 +1103,7 @@ class _LiveScoringPageState extends State<LiveScoringPage> {
         title: Text(tr('Live Scoring', 'লাইভ স্কোরিং')),
         actions: [
           IconButton(onPressed: _showDetailedStats, tooltip: tr('Detailed statistics', 'বিস্তারিত পরিসংখ্যান'), icon: const Icon(Icons.analytics_outlined)),
+          IconButton(onPressed: _exportPdf, tooltip: tr('Print / Save scorecard PDF', 'স্কোরকার্ড PDF প্রিন্ট / সেভ'), icon: const Icon(Icons.picture_as_pdf_rounded)),
           IconButton(onPressed: _shareScoreboard, tooltip: tr('Share scoreboard', 'স্কোরবোর্ড শেয়ার'), icon: const Icon(Icons.share)),
           if (match['status'] != 'Completed') IconButton(onPressed: events.isEmpty ? null : _undo, tooltip: tr('Undo last ball', 'শেষ বল বাতিল'), icon: const Icon(Icons.undo)),
         ],
